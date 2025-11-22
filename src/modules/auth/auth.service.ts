@@ -1,15 +1,16 @@
 import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
-  UnauthorizedException,
+    BadRequestException,
+    ConflictException,
+    Injectable,
+    NotFoundException,
+    UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { Repository } from 'typeorm';
+import { EmailService } from '../../shared/email/email.service';
 
 import { DaftarDto } from './dto/daftar.dto';
 import { LoginDto } from './dto/login.dto';
@@ -23,7 +24,7 @@ import { User } from './entities/user.entity';
  * OOP Concepts:
  * - Encapsulation: Business logic untuk authentication
  * - Single Responsibility: Hanya handle auth logic
- * - Dependency Injection: Inject Repository, JwtService
+ * - Dependency Injection: Inject Repository, JwtService, EmailService
  *
  * Design Patterns:
  * - Service Pattern: Business logic layer
@@ -41,6 +42,7 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
+    private readonly emailService: EmailService,
   ) {}
 
   /**
@@ -94,8 +96,13 @@ export class AuthService {
     // Simpan ke database
     const userTersimpan = await this.userRepository.save(userBaru);
 
-    // TODO: Kirim email verifikasi
-    // await this.emailService.kirimEmailVerifikasi(email, tokenVerifikasi);
+    // Kirim email verifikasi (async, tidak perlu await agar tidak blocking)
+    this.emailService
+      .kirimEmailVerifikasi(email, nama, userTersimpan.id, tokenVerifikasi)
+      .catch((error) => {
+        // Log error tapi tidak throw agar registrasi tetap berhasil
+        console.error('Error sending verification email:', error);
+      });
 
     // Return user tanpa password
     const { hashPassword: _, ...userTanpaPassword } = userTersimpan;
@@ -212,6 +219,13 @@ export class AuthService {
     user.tokenVerifikasiKadaluarsa = null;
     await this.userRepository.save(user);
 
+    // Kirim email welcome (optional, async)
+    this.emailService
+      .kirimEmailWelcome(user.email, user.nama)
+      .catch((error) => {
+        console.error('Error sending welcome email:', error);
+      });
+
     return {
       message: 'Email berhasil diverifikasi! Silakan login.',
     };
@@ -255,9 +269,12 @@ export class AuthService {
     user.tokenResetKadaluarsa = tokenResetKadaluarsa;
     await this.userRepository.save(user);
 
-    // TODO: Kirim email dengan link reset password
-    // const resetLink = `${process.env.FRONTEND_URL}/reset-password/${tokenReset}`;
-    // await this.emailService.kirimEmailResetPassword(email, resetLink);
+    // Kirim email reset password (async, tidak blocking)
+    this.emailService
+      .kirimEmailResetPassword(email, user.nama, tokenReset)
+      .catch((error) => {
+        console.error('Error sending reset password email:', error);
+      });
 
     return {
       message: 'Jika email terdaftar, link reset password akan dikirim ke email Anda.',

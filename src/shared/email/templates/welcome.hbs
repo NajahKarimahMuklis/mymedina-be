@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Selamat Datang - MyMedina</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background-color: #ffffff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+      color: #ffffff;
+      padding: 40px 30px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 32px;
+    }
+    .content {
+      padding: 40px 30px;
+    }
+    .content h2 {
+      color: #333333;
+      margin-top: 0;
+    }
+    .content p {
+      color: #666666;
+      line-height: 1.6;
+      margin: 15px 0;
+    }
+    .feature-box {
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .feature-item {
+      display: flex;
+      align-items: center;
+      margin: 15px 0;
+    }
+    .feature-icon {
+      font-size: 24px;
+      margin-right: 15px;
+    }
+    .button {
+      display: inline-block;
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+      color: #ffffff;
+      text-decoration: none;
+      padding: 14px 40px;
+      border-radius: 6px;
+      font-weight: bold;
+      margin: 20px 0;
+      transition: transform 0.2s;
+    }
+    .button:hover {
+      transform: translateY(-2px);
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 20px 30px;
+      text-align: center;
+      color: #999999;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎉 Selamat Datang!</h1>
+    </div>
+    
+    <div class="content">
+      <h2>Halo, {{nama}}! 👋</h2>
+      
+      <p>Selamat! Email Anda telah berhasil diverifikasi. Sekarang Anda dapat menikmati semua fitur MyMedina.</p>
+      
+      <div class="feature-box">
+        <h3 style="margin-top: 0; color: #333;">Apa yang bisa Anda lakukan?</h3>
+        
+        <div class="feature-item">
+          <span class="feature-icon">🛍️</span>
+          <div>
+            <strong>Belanja Produk Fashion Muslim</strong><br>
+            <span style="color: #999; font-size: 14px;">Gamis, Tunik, Hijab, dan Aksesoris</span>
+          </div>
+        </div>
+        
+        <div class="feature-item">
+          <span class="feature-icon">📦</span>
+          <div>
+            <strong>Ready Stock & Pre-Order</strong><br>
+            <span style="color: #999; font-size: 14px;">Pilih produk yang tersedia atau pesan sesuai keinginan</span>
+          </div>
+        </div>
+        
+        <div class="feature-item">
+          <span class="feature-icon">💳</span>
+          <div>
+            <strong>Pembayaran Mudah</strong><br>
+            <span style="color: #999; font-size: 14px;">Transfer Bank, E-Wallet, dan metode lainnya</span>
+          </div>
+        </div>
+        
+        <div class="feature-item">
+          <span class="feature-icon">🚚</span>
+          <div>
+            <strong>Pengiriman Cepat</strong><br>
+            <span style="color: #999; font-size: 14px;">Lacak pesanan Anda secara real-time</span>
+          </div>
+        </div>
+      </div>
+      
+      <p style="text-align: center;">Mulai belanja sekarang dan temukan koleksi terbaru kami!</p>
+      
+      <div style="text-align: center;">
+        <a href="{{frontendUrl}}/products" class="button">Mulai Belanja</a>
+      </div>
+    </div>
+    
+    <div class="footer">
+      <p>© 2025 MyMedina - Medina Stuff Fashion Boutique</p>
+      <p>Butuh bantuan? Hubungi kami di support@mymedina.com</p>
+    </div>
+  </div>
+</body>
+</html>
+

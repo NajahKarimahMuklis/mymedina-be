@@ -1,9 +1,10 @@
-import { Controller, Post, Get, Body, Param, HttpCode, HttpStatus } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Request, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { DaftarDto } from './dto/daftar.dto';
 import { LoginDto } from './dto/login.dto';
 import { LupaPasswordDto } from './dto/lupa-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 /**
  * Auth Controller
@@ -110,6 +111,23 @@ export class AuthController {
     @Body() resetPasswordDto: ResetPasswordDto,
   ) {
     return this.authService.resetPassword(token, resetPasswordDto);
+  }
+
+  /**
+   * Test JWT Authentication (Protected Route)
+   *
+   * GET /api/auth/test-jwt
+   *
+   * Endpoint untuk test apakah JWT authentication bekerja.
+   * Harus login dulu dan kirim token di Authorization header.
+   */
+  @Get('test-jwt')
+  @UseGuards(JwtAuthGuard)
+  testJwt(@Request() req) {
+    return {
+      message: 'JWT Authentication berhasil!',
+      user: req.user,
+    };
   }
 }
 

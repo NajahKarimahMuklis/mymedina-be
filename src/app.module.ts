@@ -6,6 +6,10 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { databaseConfig } from './config/database.config';
 import { AuthModule } from './modules/auth/auth.module';
+import { CategoriesModule } from './modules/categories/categories.module';
+import { ProductVariantsModule } from './modules/product-variants/product-variants.module';
+import { ProductsModule } from './modules/products/products.module';
+import { UploadModule } from './shared/upload/upload.module';
 
 /**
  * Root Application Module
@@ -36,7 +40,10 @@ import { AuthModule } from './modules/auth/auth.module';
 
     // Feature modules
     AuthModule,
-    // ProductsModule,
+    CategoriesModule,
+    ProductsModule,
+    ProductVariantsModule,
+    UploadModule,
     // OrdersModule,
     // etc.
   ],
