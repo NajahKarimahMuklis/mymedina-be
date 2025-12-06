@@ -7,8 +7,11 @@ import { AppService } from './app.service';
 import { databaseConfig } from './config/database.config';
 import { AuthModule } from './modules/auth/auth.module';
 import { CategoriesModule } from './modules/categories/categories.module';
+import { OrdersModule } from './modules/orders/orders.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 import { ProductVariantsModule } from './modules/product-variants/product-variants.module';
 import { ProductsModule } from './modules/products/products.module';
+import { ShipmentsModule } from './modules/shipments/shipments.module';
 import { UploadModule } from './shared/upload/upload.module';
 
 /**
@@ -43,8 +46,10 @@ import { UploadModule } from './shared/upload/upload.module';
     CategoriesModule,
     ProductsModule,
     ProductVariantsModule,
+    OrdersModule,
+    PaymentsModule,
+    ShipmentsModule,
     UploadModule,
-    // OrdersModule,
     // etc.
   ],
   controllers: [AppController],
