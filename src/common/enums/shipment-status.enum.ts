@@ -16,6 +16,16 @@ export enum ShipmentStatus {
   PACKED = 'PACKED',
 
   /**
+   * CONFIRMED - Shipment confirmed with courier
+   */
+  CONFIRMED = 'CONFIRMED',
+
+  /**
+   * PICKED_UP - Package picked up by courier
+   */
+  PICKED_UP = 'PICKED_UP',
+
+  /**
    * SHIPPED - Package handed to courier
    */
   SHIPPED = 'SHIPPED',
@@ -34,5 +44,10 @@ export enum ShipmentStatus {
    * RETURNED - Package returned to sender
    */
   RETURNED = 'RETURNED',
+
+  /**
+   * CANCELLED - Shipment cancelled
+   */
+  CANCELLED = 'CANCELLED',
 }
 

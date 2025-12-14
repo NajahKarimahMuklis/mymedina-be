@@ -1,29 +1,20 @@
 import {
-  BadRequestException,
   Injectable,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { OrderStatus } from '../../common/enums/order-status.enum';
-import { ShipmentStatus } from '../../common/enums/shipment-status.enum';
+import { Shipment } from './entities/shipment.entity';
 import { Order } from '../orders/entities/order.entity';
+import { BiteshipService } from './biteship.service';
+import { ShipmentStatus } from '../../common/enums/shipment-status.enum';
+import { OrderStatus } from '../../common/enums/order-status.enum';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { UpdateShipmentStatusDto } from './dto/update-shipment-status.dto';
-import { Shipment } from './entities/shipment.entity';
+import { CheckRatesDto } from './dto/check-rates.dto';
+import { CreateBiteshipOrderDto } from './dto/create-biteship-order.dto';
 
-/**
- * Shipments Service
- *
- * OOP Concepts:
- * - Encapsulation: Business logic encapsulated in service
- * - Single Responsibility: Handles only shipment-related operations
- *
- * Design Patterns:
- * - Service Pattern: Business logic layer
- * - Repository Pattern: Data access through TypeORM repositories
- * - Dependency Injection: Dependencies injected via constructor
- */
 @Injectable()
 export class ShipmentsService {
   constructor(
@@ -31,16 +22,22 @@ export class ShipmentsService {
     private readonly shipmentRepository: Repository<Shipment>,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
+    private readonly biteshipService: BiteshipService,
   ) {}
 
   /**
-   * Create Shipment
-   * Creates shipment for a paid order
+   * Cek Ongkir via Biteship
+   */
+  async cekOngkir(checkRatesDto: CheckRatesDto) {
+    return await this.biteshipService.cekOngkir(checkRatesDto);
+  }
+
+  /**
+   * Create Shipment (Manual - Original)
    */
   async buatPengiriman(createShipmentDto: CreateShipmentDto): Promise<Shipment> {
     const { orderId, kurir, layanan, nomorResi, biaya } = createShipmentDto;
 
-    // Get order
     const order = await this.orderRepository.findOne({
       where: { id: orderId },
     });
@@ -49,7 +46,6 @@ export class ShipmentsService {
       throw new NotFoundException(`Order dengan ID ${orderId} tidak ditemukan`);
     }
 
-    // Validate order status (must be PAID or PROCESSING)
     if (
       order.status !== OrderStatus.PAID &&
       order.status !== OrderStatus.PROCESSING
@@ -59,7 +55,6 @@ export class ShipmentsService {
       );
     }
 
-    // Check if shipment already exists
     const existingShipment = await this.shipmentRepository.findOne({
       where: { orderId },
     });
@@ -68,7 +63,6 @@ export class ShipmentsService {
       throw new BadRequestException('Order ini sudah memiliki pengiriman');
     }
 
-    // Create shipment
     const shipment = this.shipmentRepository.create({
       orderId,
       kurir,
@@ -78,13 +72,115 @@ export class ShipmentsService {
       status: ShipmentStatus.PENDING,
     });
 
-    // Update order status to PROCESSING
     if (order.status === OrderStatus.PAID) {
       order.status = OrderStatus.PROCESSING;
       await this.orderRepository.save(order);
     }
 
     return await this.shipmentRepository.save(shipment);
+  }
+
+  /**
+   * Buat Shipment & Order ke Biteship (Automated)
+   */
+  async buatPengirimanDenganBiteship(
+    dto: CreateBiteshipOrderDto,
+  ): Promise<Shipment> {
+    const { orderId, ...biteshipData } = dto;
+
+    // Get order with relations
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+      relations: ['user', 'items', 'items.product', 'address'],
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Order ${orderId} tidak ditemukan`);
+    }
+
+    // Validate order status
+    if (order.status !== OrderStatus.PAID) {
+      throw new BadRequestException('Order belum dibayar');
+    }
+
+    // Check existing shipment
+    const existing = await this.shipmentRepository.findOne({
+      where: { orderId },
+    });
+
+    if (existing) {
+      throw new BadRequestException('Shipment sudah ada untuk order ini');
+    }
+
+    // Get store config (sesuaikan dengan data toko Anda)
+    const storeConfig = {
+      shipper_contact_name: 'MyMedina Store',
+      shipper_contact_phone: '081234567890',
+      shipper_contact_email: 'store@mymedina.com',
+      shipper_organization: 'MyMedina',
+      origin_contact_name: 'Warehouse MyMedina',
+      origin_contact_phone: '081234567890',
+      origin_address: 'Jl. Warehouse No. 123, Jakarta Pusat',
+      origin_note: 'Dekat Plaza',
+      origin_postal_code: 10110,
+    };
+
+    // Prepare Biteship order data
+    const biteshipOrderData = {
+      ...storeConfig,
+      origin_area_id: biteshipData.origin_area_id,
+      destination_contact_name: biteshipData.destination_contact_name,
+      destination_contact_phone: biteshipData.destination_contact_phone,
+      destination_contact_email: biteshipData.destination_contact_email,
+      destination_address: biteshipData.destination_address,
+      destination_postal_code: biteshipData.destination_postal_code,
+      destination_note: biteshipData.destination_note || '',
+      destination_area_id: biteshipData.destination_area_id,
+      courier_company: biteshipData.courier_company,
+      courier_type: biteshipData.courier_type,
+      delivery_type: 'now',
+      order_note: `Order #${order.nomorOrder}`,
+      items: order.items.map((item) => ({
+        id: item.id,
+        name: item.namaProduk,
+        description: item.namaProduk,
+        value: Number(item.hargaSnapshot),
+        length: 10, // cm - sesuaikan dengan data produk
+        width: 10,
+        height: 10,
+        weight: 500, // gram - sesuaikan dengan data produk
+        quantity: item.kuantitas,
+      })),
+    };
+
+    // Create order to Biteship
+    const biteshipOrder = await this.biteshipService.buatOrderShipment(
+      biteshipOrderData,
+    );
+
+    // Create shipment in database
+    const shipment = this.shipmentRepository.create({
+      orderId,
+      biteshipOrderId: biteshipOrder.id,
+      biteshipTrackingId: biteshipOrder.courier?.tracking_id,
+      courierTrackingUrl: biteshipOrder.courier?.link,
+      courierWaybillId: biteshipOrder.courier?.waybill_id,
+      kurir: biteshipOrder.courier?.company,
+      layanan: biteshipOrder.courier?.type,
+      nomorResi: biteshipOrder.courier?.waybill_id,
+      biaya: biteshipOrder.price,
+      estimasiPengiriman: biteshipOrder.courier?.delivery_time
+        ? new Date(biteshipOrder.courier.delivery_time)
+        : undefined,
+      deskripsi: `Pengiriman via ${biteshipOrder.courier?.company} - ${biteshipOrder.courier?.type}`,
+      status: ShipmentStatus.PENDING,
+    } as any);
+
+    // Update order status
+    order.status = OrderStatus.PROCESSING;
+    await this.orderRepository.save(order);
+
+    return await this.shipmentRepository.save(shipment as any);
   }
 
   /**
@@ -125,7 +221,6 @@ export class ShipmentsService {
 
   /**
    * Update Shipment Status
-   * Updates shipment status and order status accordingly
    */
   async updateStatusPengiriman(
     shipmentId: string,
@@ -144,25 +239,20 @@ export class ShipmentsService {
 
     const { status, nomorResi } = updateShipmentStatusDto;
 
-    // Update shipment status
-    shipment.status = status;
-
+    // Update using entity methods
     if (nomorResi) {
-      shipment.nomorResi = nomorResi;
+      shipment.updateTrackingInfo(nomorResi);
     }
 
-    // Update timestamps based on status
-    if (status === ShipmentStatus.SHIPPED) {
-      shipment.dikirimPada = new Date();
+    shipment.status = status;
 
-      // Update order status to SHIPPED
+    if (status === ShipmentStatus.SHIPPED) {
+      shipment.tandaiSebagaiDikirim();
       const order = shipment.order;
       order.status = OrderStatus.SHIPPED;
       await this.orderRepository.save(order);
     } else if (status === ShipmentStatus.DELIVERED) {
-      shipment.diterimaPada = new Date();
-
-      // Update order status to COMPLETED
+      shipment.tandaiSebagaiDiterima();
       const order = shipment.order;
       order.status = OrderStatus.COMPLETED;
       order.diselesaikanPada = new Date();
@@ -171,5 +261,33 @@ export class ShipmentsService {
 
     return await this.shipmentRepository.save(shipment);
   }
-}
 
+  /**
+   * Tracking dari Biteship
+   */
+  async trackingDariBiteship(shipmentId: string) {
+    const shipment = await this.shipmentRepository.findOne({
+      where: { id: shipmentId },
+    });
+
+    if (!shipment) {
+      throw new NotFoundException('Shipment tidak ditemukan');
+    }
+
+    if (!shipment.courierWaybillId || !shipment.kurir) {
+      throw new BadRequestException('Data tracking tidak lengkap');
+    }
+
+    return await this.biteshipService.trackingShipment(
+      shipment.courierWaybillId,
+      shipment.kurir,
+    );
+  }
+
+  /**
+   * Cari Lokasi
+   */
+  async cariLokasi(query: string) {
+    return await this.biteshipService.cariLokasi(query, 'ID');
+  }
+}

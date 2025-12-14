@@ -11,45 +11,30 @@ import { Order } from '../../orders/entities/order.entity';
 import { ShipmentStatus } from '../../../common/enums/shipment-status.enum';
 
 /**
- * Shipment Entity
- *
- * OOP Concepts:
- * - Encapsulation: Shipment data and behavior in one class
- * - Abstraction: Hides database implementation details
- * - Data Modeling: Represents Shipment table in database
- *
- * Design Pattern:
- * - Active Record Pattern (via TypeORM)
- *
- * Based on: ClassDiagram-MyMedina-v4-SIMPLIFIED.puml
- *
- * Naming Convention: Hybrid Approach
- * - Class name: English (Shipment)
- * - Properties: Bahasa Indonesia (orderId, kurir, etc.)
- * - Database columns: English snake_case (order_id, courier, etc.)
- *
- * Note: One order has ONE shipment (OneToOne relationship)
+ * Shipment Entity - Disesuaikan dengan Class Diagram
  */
 @Entity('shipments')
 export class Shipment {
-  // ========================================
-  // PRIMARY KEY
-  // ========================================
-
   @PrimaryGeneratedColumn('uuid')
   id: string;
-
-  // ========================================
-  // FOREIGN KEY (UNIQUE - OneToOne)
-  // ========================================
 
   @Column({ name: 'order_id', unique: true })
   orderId: string;
 
-  // ========================================
-  // SHIPMENT FIELDS
-  // ========================================
+  // BITESHIP INTEGRATION FIELDS
+  @Column({ name: 'biteship_order_id', nullable: true })
+  biteshipOrderId: string;
 
+  @Column({ name: 'biteship_tracking_id', nullable: true })
+  biteshipTrackingId: string;
+
+  @Column({ name: 'courier_tracking_url', nullable: true })
+  courierTrackingUrl: string;
+
+  @Column({ name: 'courier_waybill_id', nullable: true })
+  courierWaybillId: string;
+
+  // SHIPMENT FIELDS (sesuai diagram)
   @Column({ length: 100, nullable: true })
   kurir: string;
 
@@ -66,16 +51,14 @@ export class Shipment {
   })
   status: ShipmentStatus;
 
-  @Column({
-    type: 'decimal',
-    precision: 12,
-    scale: 2,
-  })
+  @Column({ type: 'decimal', precision: 12, scale: 2 })
   biaya: number;
 
-  // ========================================
-  // TIMESTAMPS
-  // ========================================
+  @Column({ name: 'description', type: 'text', nullable: true })
+  deskripsi: string;
+
+  @Column({ name: 'estimated_delivery', type: 'timestamp', nullable: true })
+  estimasiPengiriman: Date;
 
   @Column({ name: 'shipped_at', type: 'timestamp', nullable: true })
   dikirimPada: Date;
@@ -89,19 +72,24 @@ export class Shipment {
   @UpdateDateColumn({ name: 'updated_at' })
   diupdatePada: Date;
 
-  // ========================================
   // RELATIONSHIPS
-  // ========================================
-
-  /**
-   * Order Relationship
-   * Setiap shipment belongs to satu order (OneToOne)
-   */
-  @OneToOne(() => Order, {
-    nullable: false,
-    onDelete: 'CASCADE',
-  })
+  @OneToOne(() => Order, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'order_id' })
   order: Order;
-}
 
+  // METHODS (sesuai diagram)
+  updateTrackingInfo(nomorResi: string): void {
+    this.nomorResi = nomorResi;
+    this.diupdatePada = new Date();
+  }
+
+  tandaiSebagaiDikirim(): void {
+    this.status = ShipmentStatus.SHIPPED;
+    this.dikirimPada = new Date();
+  }
+
+  tandaiSebagaiDiterima(): void {
+    this.status = ShipmentStatus.DELIVERED;
+    this.diterimaPada = new Date();
+  }
+}

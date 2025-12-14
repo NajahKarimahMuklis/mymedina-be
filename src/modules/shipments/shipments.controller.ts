@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -7,6 +8,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -14,29 +16,31 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
 import { ShipmentsService } from './shipments.service';
+import { CheckRatesDto } from './dto/check-rates.dto';
+import { CreateBiteshipOrderDto } from './dto/create-biteship-order.dto';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { UpdateShipmentStatusDto } from './dto/update-shipment-status.dto';
 
-/**
- * Shipments Controller
- *
- * OOP Concepts:
- * - Encapsulation: HTTP handling logic in controller
- * - Single Responsibility: Handles only HTTP requests/responses
- *
- * Design Patterns:
- * - Controller Pattern: Handles HTTP requests
- * - Dependency Injection: ShipmentsService injected
- * - Guard Pattern: Authentication and authorization
- */
 @Controller('shipments')
 @UseGuards(JwtAuthGuard)
 export class ShipmentsController {
   constructor(private readonly shipmentsService: ShipmentsService) {}
 
   /**
-   * POST /shipments - Create Shipment
-   * Admin/Owner only
+   * POST /shipments/check-rates - Cek Ongkir
+   */
+  @Post('check-rates')
+  @HttpCode(HttpStatus.OK)
+  async cekOngkir(@Body() checkRatesDto: CheckRatesDto) {
+    const rates = await this.shipmentsService.cekOngkir(checkRatesDto);
+    return {
+      message: 'Berhasil cek ongkir',
+      data: rates,
+    };
+  }
+
+  /**
+   * POST /shipments - Create Shipment (Manual)
    */
   @Post()
   @UseGuards(RolesGuard)
@@ -53,8 +57,26 @@ export class ShipmentsController {
   }
 
   /**
+   * POST /shipments/create-with-biteship - Buat Shipment via Biteship
+   */
+  @Post('create-with-biteship')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.OWNER)
+  @HttpCode(HttpStatus.CREATED)
+  async buatPengirimanDenganBiteship(
+    @Body() createBiteshipOrderDto: CreateBiteshipOrderDto,
+  ) {
+    const shipment = await this.shipmentsService.buatPengirimanDenganBiteship(
+      createBiteshipOrderDto,
+    );
+    return {
+      message: 'Shipment berhasil dibuat via Biteship',
+      shipment,
+    };
+  }
+
+  /**
    * GET /shipments/order/:orderId/track - Track Shipment by Order ID
-   * Customer (own orders) or Admin (all orders)
    */
   @Get('order/:orderId/track')
   async lacakPengiriman(@Param('orderId') orderId: string) {
@@ -69,7 +91,6 @@ export class ShipmentsController {
 
   /**
    * GET /shipments/:id - Get Shipment by ID
-   * Customer (own shipments) or Admin (all shipments)
    */
   @Get(':id')
   async ambilPengirimanById(@Param('id') id: string) {
@@ -82,8 +103,35 @@ export class ShipmentsController {
   }
 
   /**
+   * GET /shipments/:id/tracking - Tracking dari Biteship
+   */
+  @Get(':id/tracking')
+  async trackingShipment(@Param('id') id: string) {
+    const tracking = await this.shipmentsService.trackingDariBiteship(id);
+    return {
+      message: 'Berhasil tracking shipment',
+      data: tracking,
+    };
+  }
+
+  /**
+   * GET /shipments/locations/search - Cari Lokasi
+   */
+  @Get('locations/search')
+  async cariLokasi(@Query('q') query: string) {
+    if (!query) {
+      throw new BadRequestException('Query parameter "q" diperlukan');
+    }
+
+    const locations = await this.shipmentsService.cariLokasi(query);
+    return {
+      message: 'Berhasil cari lokasi',
+      data: locations,
+    };
+  }
+
+  /**
    * PUT /shipments/:id/status - Update Shipment Status
-   * Admin/Owner only
    */
   @Put(':id/status')
   @UseGuards(RolesGuard)
@@ -103,4 +151,3 @@ export class ShipmentsController {
     };
   }
 }
-
