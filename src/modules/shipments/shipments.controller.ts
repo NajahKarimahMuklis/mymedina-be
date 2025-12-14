@@ -76,7 +76,25 @@ export class ShipmentsController {
   }
 
   /**
+   * GET /shipments/locations/search - Cari Lokasi
+   * NOTE: Specific routes must be before generic :id routes
+   */
+  @Get('locations/search')
+  async cariLokasi(@Query('q') query: string) {
+    if (!query) {
+      throw new BadRequestException('Query parameter "q" diperlukan');
+    }
+
+    const locations = await this.shipmentsService.cariLokasi(query);
+    return {
+      message: 'Berhasil cari lokasi',
+      data: locations,
+    };
+  }
+
+  /**
    * GET /shipments/order/:orderId/track - Track Shipment by Order ID
+   * NOTE: Specific routes must be before generic :id routes
    */
   @Get('order/:orderId/track')
   async lacakPengiriman(@Param('orderId') orderId: string) {
@@ -90,20 +108,8 @@ export class ShipmentsController {
   }
 
   /**
-   * GET /shipments/:id - Get Shipment by ID
-   */
-  @Get(':id')
-  async ambilPengirimanById(@Param('id') id: string) {
-    const shipment = await this.shipmentsService.ambilPengirimanById(id);
-
-    return {
-      message: 'Berhasil mengambil detail pengiriman',
-      shipment,
-    };
-  }
-
-  /**
    * GET /shipments/:id/tracking - Tracking dari Biteship
+   * NOTE: Routes with additional params must be before generic :id routes
    */
   @Get(':id/tracking')
   async trackingShipment(@Param('id') id: string) {
@@ -115,18 +121,16 @@ export class ShipmentsController {
   }
 
   /**
-   * GET /shipments/locations/search - Cari Lokasi
+   * GET /shipments/:id - Get Shipment by ID
+   * NOTE: This is the most generic GET route, must be last
    */
-  @Get('locations/search')
-  async cariLokasi(@Query('q') query: string) {
-    if (!query) {
-      throw new BadRequestException('Query parameter "q" diperlukan');
-    }
+  @Get(':id')
+  async ambilPengirimanById(@Param('id') id: string) {
+    const shipment = await this.shipmentsService.ambilPengirimanById(id);
 
-    const locations = await this.shipmentsService.cariLokasi(query);
     return {
-      message: 'Berhasil cari lokasi',
-      data: locations,
+      message: 'Berhasil mengambil detail pengiriman',
+      shipment,
     };
   }
 
