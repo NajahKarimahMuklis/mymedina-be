@@ -8,7 +8,7 @@ Backend API yang dibangun dengan **NestJS** dan **TypeScript** untuk mendukung a
 
 ## 📋 **Deskripsi Project**
 
-**MyMedina** adalah project tugas akhir mata kuliah **RPLBO (Rekayasa Perangkat Lunak Berorientasi Objek)** yang mengimplementasikan konsep OOP dan design patterns dalam pengembangan aplikasi e-commerce.
+**MyMedina** adalah project tugas akhir mata kuliah **RPLBO,SI,DIA** yang mengimplementasikan konsep OOP dan design patterns dalam pengembangan aplikasi e-commerce.
 
 **Fitur Utama:**
 - 🔐 Authentication & Authorization (JWT)
