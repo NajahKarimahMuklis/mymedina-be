@@ -133,9 +133,9 @@ export class PaymentsService {
       // Product items
       ...order.items.map((item) => ({
         id: item.variantId,
-        price: Math.round(Number(item.hargaSnapshot)),
+        price: Math.round(Number(item.hargaSatuan)),
         quantity: item.kuantitas,
-        name: `${item.namaProduk} - ${item.ukuranVariant} ${item.warnaVariant}`,
+        name: `${item.namaProduct} - ${item.ukuranVariant} ${item.warnaVariant}`,
       })),
       // Shipping cost as separate item
       {
@@ -309,7 +309,7 @@ export class PaymentsService {
 
     // Update settlement time if payment is successful
     if (status === PaymentStatus.SETTLEMENT) {
-      payment.waktuPenyelesaian = new Date();
+      payment.waktuSettlement = new Date();
 
       // Update order status to PAID
       const order = payment.order;
@@ -329,5 +329,100 @@ export class PaymentsService {
     }
 
     return await this.paymentRepository.save(payment);
+  }
+
+  /**
+   * Buat transaksi Midtrans
+   * Menggunakan method entity: buatTransaksiMidtrans()
+   * 
+   * @param paymentId - ID payment
+   * @returns Transaction ID atau Snap token
+   */
+  async buatTransaksiMidtransPayment(paymentId: string): Promise<string> {
+    const payment = await this.paymentRepository.findOne({
+      where: { id: paymentId },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment tidak ditemukan');
+    }
+
+    // Gunakan method entity
+    return payment.buatTransaksiMidtrans();
+  }
+
+  /**
+   * Handle webhook dari Midtrans
+   * Menggunakan method entity: handleWebhook()
+   * 
+   * @param paymentId - ID payment
+   * @param payload - Webhook payload dari Midtrans
+   */
+  async handleWebhookPayment(paymentId: string, payload: Record<string, any>): Promise<Payment> {
+    const payment = await this.paymentRepository.findOne({
+      where: { id: paymentId },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment tidak ditemukan');
+    }
+
+    // Gunakan method entity
+    payment.handleWebhook(payload);
+    
+    return await this.paymentRepository.save(payment);
+  }
+
+  /**
+   * Verifikasi signature dari webhook Midtrans
+   * Menggunakan method entity: verifySignature()
+   * 
+   * @param paymentId - ID payment
+   * @param signature - Signature dari Midtrans
+   * @returns true jika valid
+   */
+  async verifySignaturePayment(paymentId: string, signature: string): Promise<boolean> {
+    const payment = await this.paymentRepository.findOne({
+      where: { id: paymentId },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment tidak ditemukan');
+    }
+
+    // Gunakan method entity
+    return payment.verifySignature(signature);
+  }
+
+  /**
+   * Proses refund untuk payment
+   * Menggunakan method entity: prosesRefund()
+   * 
+   * @param paymentId - ID payment
+   * @returns true jika refund berhasil
+   */
+  async prosesRefundPayment(paymentId: string): Promise<boolean> {
+    const payment = await this.paymentRepository.findOne({
+      where: { id: paymentId },
+      relations: ['order'],
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment tidak ditemukan');
+    }
+
+    // Gunakan method entity
+    const refundSuccess = payment.prosesRefund();
+    
+    if (refundSuccess) {
+      // Update order status
+      const order = payment.order;
+      order.status = OrderStatus.REFUNDED;
+      await this.orderRepository.save(order);
+      
+      await this.paymentRepository.save(payment);
+    }
+
+    return refundSuccess;
   }
 }

@@ -72,24 +72,62 @@ export class Shipment {
   @UpdateDateColumn({ name: 'updated_at' })
   diupdatePada: Date;
 
+  // ========================================
   // RELATIONSHIPS
-  @OneToOne(() => Order, { nullable: false, onDelete: 'CASCADE' })
+  // ========================================
+
+  /**
+   * Order Relationship
+   * Setiap shipment memiliki hubungan OneToOne dengan Order
+   * Based on: Class Diagram - Shipment has 0..1 relationship with Order
+   */
+  @OneToOne(() => Order, (order) => order.shipment, { 
+    nullable: false, 
+    onDelete: 'CASCADE' 
+  })
   @JoinColumn({ name: 'order_id' })
   order: Order;
 
-  // METHODS (sesuai diagram)
+  // ========================================
+  // METHODS (sesuai Class Diagram)
+  // ========================================
+
+  /**
+   * Update tracking info (nomor resi)
+   * 
+   * @param nomorResi Nomor resi pengiriman baru
+   */
   updateTrackingInfo(nomorResi: string): void {
     this.nomorResi = nomorResi;
     this.diupdatePada = new Date();
   }
 
-  tandaiSebagaiDikirim(): void {
-    this.status = ShipmentStatus.SHIPPED;
-    this.dikirimPada = new Date();
+  /**
+   * Update status shipment
+   * 
+   * @param statusBaru Status shipment yang baru
+   */
+  updateStatus(statusBaru: ShipmentStatus): void {
+    this.status = statusBaru;
+    this.diupdatePada = new Date();
   }
 
-  tandaiSebagaiDiterima(): void {
+  /**
+   * Tandai shipment sebagai dikirim
+   * Set status ke SHIPPED dan simpan waktu pengiriman
+   */
+  tandaSebagaiDikirim(): void {
+    this.status = ShipmentStatus.SHIPPED;
+    this.dikirimPada = new Date();
+    this.diupdatePada = new Date();
+  }
+
+  /**
+   * Tandai shipment sebagai diterima
+   * Set status ke DELIVERED dan simpan waktu penerimaan
+   */
+  tandaSebagaiDiterima(): void {
     this.status = ShipmentStatus.DELIVERED;
     this.diterimaPada = new Date();
+    this.diupdatePada = new Date();
   }
-}

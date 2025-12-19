@@ -11,19 +11,9 @@ export enum ShipmentStatus {
   PENDING = 'PENDING',
 
   /**
-   * PACKED - Order packed and ready to ship
+   * READY_TO_SHIP - Order is ready and waiting to be shipped
    */
-  PACKED = 'PACKED',
-
-  /**
-   * CONFIRMED - Shipment confirmed with courier
-   */
-  CONFIRMED = 'CONFIRMED',
-
-  /**
-   * PICKED_UP - Package picked up by courier
-   */
-  PICKED_UP = 'PICKED_UP',
+  READY_TO_SHIP = 'READY_TO_SHIP',
 
   /**
    * SHIPPED - Package handed to courier
@@ -39,15 +29,5 @@ export enum ShipmentStatus {
    * DELIVERED - Package delivered to customer
    */
   DELIVERED = 'DELIVERED',
-
-  /**
-   * RETURNED - Package returned to sender
-   */
-  RETURNED = 'RETURNED',
-
-  /**
-   * CANCELLED - Shipment cancelled
-   */
-  CANCELLED = 'CANCELLED',
 }
 

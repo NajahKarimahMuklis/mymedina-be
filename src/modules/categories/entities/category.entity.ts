@@ -7,6 +7,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Product } from '../../products/entities/product.entity';
 
 /**
  * Category Entity
@@ -74,7 +75,35 @@ export class Category {
   @OneToMany(() => Category, (category) => category.parent)
   subKategori: Category[];
 
-  // Note: Relationship dengan Product akan ditambahkan nanti
-  // @OneToMany(() => Product, (product) => product.category)
-  // products: Product[];
+  /**
+   * Products Relationship
+   * Setiap kategori bisa memiliki banyak produk (0..*)
+   * Based on: Class Diagram - Category contains 0..* Product
+   */
+  @OneToMany(() => Product, (product) => product.category, {
+    nullable: true,
+  })
+  products: Product[];
+
+  // ========================================
+  // METHODS (sesuai Class Diagram)
+  // ========================================
+
+  /**
+   * Ambil semua sub kategori
+   * 
+   * @returns Array dari Category (sub-categories)
+   */
+  ambilSubKategori(): Category[] {
+    return this.subKategori || [];
+  }
+
+  /**
+   * Ambil semua products dalam kategori ini
+   * 
+   * @returns Array dari Product
+   */
+  ambilProducts(): Product[] {
+    return this.products || [];
+  }
 }

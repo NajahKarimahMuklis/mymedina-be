@@ -16,9 +16,14 @@ export enum OrderStatus {
   PAID = 'PAID',
 
   /**
-   * PROCESSING - Order is being prepared
+   * IN_PRODUCTION - Order is being produced (for PO orders)
    */
-  PROCESSING = 'PROCESSING',
+  IN_PRODUCTION = 'IN_PRODUCTION',
+
+  /**
+   * READY_TO_SHIP - Order is ready and waiting to be shipped
+   */
+  READY_TO_SHIP = 'READY_TO_SHIP',
 
   /**
    * SHIPPED - Order has been shipped
@@ -26,7 +31,12 @@ export enum OrderStatus {
   SHIPPED = 'SHIPPED',
 
   /**
-   * COMPLETED - Order delivered and completed
+   * DELIVERED - Order has been delivered
+   */
+  DELIVERED = 'DELIVERED',
+
+  /**
+   * COMPLETED - Order completed
    */
   COMPLETED = 'COMPLETED',
 
@@ -34,5 +44,15 @@ export enum OrderStatus {
    * CANCELLED - Order was cancelled
    */
   CANCELLED = 'CANCELLED',
+
+  /**
+   * REFUNDED - Order was refunded
+   */
+  REFUNDED = 'REFUNDED',
+
+  /**
+   * EXPIRED - Order payment expired
+   */
+  EXPIRED = 'EXPIRED',
 }
 

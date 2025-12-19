@@ -48,13 +48,13 @@ export class ProductVariant {
   stok: number;
 
   @Column({
-    name: 'price_override',
+    name: 'price_additional',
     type: 'decimal',
     precision: 12,
     scale: 2,
     nullable: true,
   })
-  hargaOverride: number;
+  hargaTambahan: number;
 
   @Column({ default: true })
   aktif: boolean;
@@ -73,11 +73,58 @@ export class ProductVariant {
    * Product Relationship
    * Setiap variant belongs to satu produk
    */
-  @ManyToOne(() => Product, {
+  @ManyToOne(() => Product, (product) => product.variants, {
     nullable: false,
     onDelete: 'CASCADE', // Delete variants when product is deleted
   })
   @JoinColumn({ name: 'product_id' })
   product: Product;
-}
+
+  // ========================================
+  // METHODS (sesuai Class Diagram)
+  // ========================================
+
+  /**
+   * Ambil harga variant
+   * Harga = hargaDasar produk + hargaTambahan variant
+   * Implementation: Dihandle di service layer karena butuh akses product.hargaDasar
+   * 
+   * @returns Harga variant (decimal)
+   */
+  ambilHarga(): number {
+    // Note: Actual implementation needs product reference
+    // Base price from product + additional price from variant
+    return Number(this.hargaTambahan || 0);
+  }
+
+  /**
+   * Kurangi stok variant
+   * 
+   * @param kuantitas Jumlah stok yang dikurangi
+   */
+  kurangiStok(kuantitas: number): void {
+    this.stok -= kuantitas;
+    if (this.stok < 0) {
+      this.stok = 0;
+    }
+  }
+
+  /**
+   * Kembalikan stok variant (misalnya jika order dibatalkan)
+   * 
+   * @param kuantitas Jumlah stok yang dikembalikan
+   */
+  kembalikanStok(kuantitas: number): void {
+    this.stok += kuantitas;
+  }
+
+  /**
+   * Cek apakah stok tersedia
+   * 
+   * @param kuantitas Jumlah yang dicek (default 1)
+   * @returns true jika stok cukup, false jika tidak
+   */
+  isStokTersedia(kuantitas: number = 1): boolean {
+    return this.aktif && this.stok >= kuantitas;
+  }
 

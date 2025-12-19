@@ -10,6 +10,7 @@ import {
   Min,
   MaxLength,
   Matches,
+  IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { OrderType } from '../../../common/enums/order-type.enum';

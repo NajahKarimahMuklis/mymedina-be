@@ -57,10 +57,10 @@ export class OrderItem {
   // ========================================
 
   @Column({ name: 'product_name', length: 255 })
-  namaProduk: string;
+  namaProduct: string;
 
-  @Column({ name: 'variant_sku', length: 100 })
-  skuVariant: string;
+  @Column({ name: 'product_sku', length: 100 })
+  skuProduct: string;
 
   @Column({ name: 'variant_size', length: 50 })
   ukuranVariant: string;
@@ -76,12 +76,12 @@ export class OrderItem {
   kuantitas: number;
 
   @Column({
-    name: 'price_snapshot',
+    name: 'unit_price',
     type: 'decimal',
     precision: 12,
     scale: 2,
   })
-  hargaSnapshot: number;
+  hargaSatuan: number;
 
   @Column({
     type: 'decimal',
@@ -126,5 +126,19 @@ export class OrderItem {
   })
   @JoinColumn({ name: 'variant_id' })
   variant: ProductVariant;
+
+  // ========================================
+  // METHODS (sesuai Class Diagram)
+  // ========================================
+
+  /**
+   * Hitung subtotal item
+   * Subtotal = hargaSatuan * kuantitas
+   * 
+   * @returns Subtotal (decimal)
+   */
+  hitungSubtotal(): number {
+    return Number(this.hargaSatuan) * this.kuantitas;
+  }
 }
 

@@ -70,7 +70,7 @@ export class ReportsService {
     const productSales = await this.orderRepository
       .createQueryBuilder('order')
       .leftJoinAndSelect('order.items', 'item')
-      .select('item.namaProduk', 'productName')
+      .select('item.namaProduct', 'productName')
       .addSelect('SUM(item.kuantitas)', 'quantitySold')
       .addSelect('SUM(item.subtotal)', 'totalRevenue')
       .where('order.status = :status', { status: OrderStatus.COMPLETED })
@@ -78,7 +78,7 @@ export class ReportsService {
         startDate,
         endDate,
       })
-      .groupBy('item.namaProduk')
+      .groupBy('item.namaProduct')
       .orderBy('totalRevenue', 'DESC')
       .getRawMany();
 

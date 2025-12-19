@@ -221,4 +221,67 @@ export class ProductsService {
       message: 'Produk berhasil dihapus',
     };
   }
+
+  /**
+   * Ambil semua variants dari product
+   * Menggunakan method entity: ambilVariants()
+   * 
+   * @param productId - ID produk
+   * @returns Array dari ProductVariant
+   */
+  async ambilVariantsProduct(productId: string): Promise<any[]> {
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+      relations: ['variants'],
+    });
+
+    if (!product) {
+      throw new NotFoundException('Produk tidak ditemukan');
+    }
+
+    // Gunakan method entity
+    return product.ambilVariants();
+  }
+
+  /**
+   * Ambil total stok tersedia dari semua variants
+   * Menggunakan method entity: ambilStokTersedia()
+   * 
+   * @param productId - ID produk
+   * @returns Total stok
+   */
+  async ambilStokTersediaProduct(productId: string): Promise<number> {
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+      relations: ['variants'],
+    });
+
+    if (!product) {
+      throw new NotFoundException('Produk tidak ditemukan');
+    }
+
+    // Gunakan method entity
+    return product.ambilStokTersedia();
+  }
+
+  /**
+   * Cek apakah product tersedia
+   * Menggunakan method entity: isTersedia()
+   * 
+   * @param productId - ID produk
+   * @returns true jika tersedia, false jika tidak
+   */
+  async isTersediaProduct(productId: string): Promise<boolean> {
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+      relations: ['variants'],
+    });
+
+    if (!product) {
+      throw new NotFoundException('Produk tidak ditemukan');
+    }
+
+    // Gunakan method entity
+    return product.isTersedia();
+  }
 }

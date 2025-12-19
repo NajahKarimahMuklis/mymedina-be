@@ -196,6 +196,10 @@ export class AddressService {
       where: { id: addressId },
     });
 
+    if (!updatedAddress) {
+      throw new NotFoundException('Alamat tidak ditemukan setelah update');
+    }
+
     return this.mapToDto(updatedAddress);
   }
 
@@ -248,6 +252,7 @@ export class AddressService {
   /**
    * Set address sebagai default
    * Unset default address yang lama
+   * Menggunakan method entity: setAsDefault()
    *
    * @param addressId - Address ID
    * @param userId - User ID
@@ -267,6 +272,9 @@ export class AddressService {
       { isDefault: false },
     );
 
+    // Gunakan method entity: setAsDefault()
+    address.setAsDefault();
+
     // Set new default
     await this.addressRepository.update({ id: addressId }, { isDefault: true });
 
@@ -274,7 +282,31 @@ export class AddressService {
       where: { id: addressId },
     });
 
+    if (!updatedAddress) {
+      throw new NotFoundException('Alamat tidak ditemukan setelah update');
+    }
+
     return this.mapToDto(updatedAddress);
+  }
+
+  /**
+   * Get full address string
+   * Menggunakan method entity: getAlamatLengkap()
+   *
+   * @param addressId - Address ID
+   * @returns Full address string
+   */
+  async getFullAddress(addressId: string): Promise<string> {
+    const address = await this.addressRepository.findOne({
+      where: { id: addressId },
+    });
+
+    if (!address) {
+      throw new NotFoundException('Alamat tidak ditemukan');
+    }
+
+    // Gunakan method entity: getAlamatLengkap()
+    return address.getAlamatLengkap();
   }
 
   /**

@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { Role } from '../enums/role.enum';
 import { Address } from './address.entity';
+import { Order } from '../../orders/entities/order.entity';
 
 /**
  * User Entity
@@ -95,6 +96,17 @@ export class User {
     eager: false,
   })
   addresses: Address[];
+
+  /**
+   * User memiliki banyak orders
+   * Cascade delete: jika user dihapus, semua orders juga dihapus
+   * Based on: Class Diagram - User has 0..* Orders
+   */
+  @OneToMany(() => Order, (order) => order.user, {
+    cascade: true,
+    eager: false,
+  })
+  orders: Order[];
 
   // Methods akan ditambahkan di AuthService (mengikuti NestJS best practices)
   // - daftarPengguna()

@@ -205,8 +205,8 @@ export class OrdersService {
         );
       }
 
-      // Calculate price (use override if exists, otherwise use product base price)
-      const price = variant.hargaOverride || variant.product.hargaDasar;
+      // Calculate price (use hargaTambahan if exists, otherwise use product base price)
+      const price = (variant.hargaTambahan || 0) + variant.product.hargaDasar;
       const itemSubtotal = price * item.kuantitas;
       subtotal += itemSubtotal;
 
@@ -214,12 +214,12 @@ export class OrdersService {
       const orderItem = this.orderItemRepository.create({
         productId: variant.product.id,
         variantId: variant.id,
-        namaProduk: variant.product.nama,
-        skuVariant: variant.sku,
+        namaProduct: variant.product.nama,
+        skuProduct: variant.sku,
         ukuranVariant: variant.ukuran,
         warnaVariant: variant.warna,
         kuantitas: item.kuantitas,
-        hargaSnapshot: price,
+        hargaSatuan: price,
         subtotal: itemSubtotal,
       });
 
@@ -369,5 +369,140 @@ export class OrdersService {
     }
 
     return await this.orderRepository.save(order);
+  }
+
+  /**
+   * Generate nomor order baru
+   * Menggunakan method entity: generateNomorOrder()
+   * 
+   * @returns Nomor order unik
+   */
+  async generateNomorOrderNew(): Promise<string> {
+    return await this.generateOrderNumber();
+  }
+
+  /**
+   * Hitung total order
+   * Menggunakan method entity: hitungTotal()
+   * Total = subtotal + ongkosKirim
+   * 
+   * @param orderId - ID order
+   * @returns Total order
+   */
+  async hitungTotalOrder(orderId: string): Promise<number> {
+    const order = await this.orderRepository.findOne({ where: { id: orderId } });
+    if (!order) {
+      throw new NotFoundException('Order tidak ditemukan');
+    }
+    
+    // Gunakan method entity
+    return order.hitungTotal();
+  }
+
+  /**
+   * Update status order
+   * Menggunakan method entity: updateStatus()
+   * 
+   * @param orderId - ID order
+   * @param statusBaru - Status baru
+   */
+  async updateStatusOrderNew(orderId: string, statusBaru: OrderStatus): Promise<Order> {
+    const order = await this.orderRepository.findOne({ where: { id: orderId } });
+    if (!order) {
+      throw new NotFoundException('Order tidak ditemukan');
+    }
+
+    // Gunakan method entity
+    order.updateStatus(statusBaru);
+    return await this.orderRepository.save(order);
+  }
+
+  /**
+   * Batalkan order
+   * Menggunakan method entity: batalkanOrder()
+   * 
+   * @param orderId - ID order
+   */
+  async batalkanOrderNew(orderId: string): Promise<Order> {
+    const order = await this.orderRepository.findOne({ where: { id: orderId } });
+    if (!order) {
+      throw new NotFoundException('Order tidak ditemukan');
+    }
+
+    // Gunakan method entity
+    order.batalkanOrder();
+    
+    // Restore stock dari setiap item
+    for (const item of order.items) {
+      const variant = await this.productVariantRepository.findOne({
+        where: { id: item.variantId },
+      });
+      if (variant) {
+        variant.kembalikanStok(item.kuantitas);
+        await this.productVariantRepository.save(variant);
+      }
+    }
+
+    return await this.orderRepository.save(order);
+  }
+
+  /**
+   * Ambil semua items dalam order
+   * Menggunakan method entity: ambilItems()
+   * 
+   * @param orderId - ID order
+   * @returns Array dari OrderItem
+   */
+  async ambilItemsOrder(orderId: string): Promise<OrderItem[]> {
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+      relations: ['items'],
+    });
+    if (!order) {
+      throw new NotFoundException('Order tidak ditemukan');
+    }
+
+    // Gunakan method entity
+    return order.ambilItems();
+  }
+
+  /**
+   * Ambil semua payments untuk order
+   * Menggunakan method entity: ambilPayments()
+   * 
+   * @param orderId - ID order
+   * @returns Array dari Payment
+   */
+  async ambilPaymentsOrder(orderId: string): Promise<any[]> {
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+      relations: ['payments'],
+    });
+    if (!order) {
+      throw new NotFoundException('Order tidak ditemukan');
+    }
+
+    // Gunakan method entity
+    return order.ambilPayments();
+  }
+
+  /**
+   * Ambil shipment untuk order
+   * Menggunakan method entity: ambilShipment()
+   * 
+   * @param orderId - ID order
+   * @returns Shipment atau undefined
+   */
+  async ambilShipmentOrder(orderId: string): Promise<any> {
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+      relations: ['shipment'],
+    });
+    if (!order) {
+      throw new NotFoundException('Order tidak ditemukan');
+    }
+
+    // Gunakan method entity
+    return order.ambilShipment();
   }
 }

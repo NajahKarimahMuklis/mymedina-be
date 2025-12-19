@@ -99,7 +99,7 @@ export class Payment {
   diinisiasiPada: Date;
 
   @Column({ name: 'settlement_time', type: 'timestamp', nullable: true })
-  waktuPenyelesaian: Date;
+  waktuSettlement: Date;
 
   @CreateDateColumn({ name: 'created_at' })
   dibuatPada: Date;
@@ -115,12 +115,68 @@ export class Payment {
    * Order Relationship
    * Setiap payment belongs to satu order
    * One order can have multiple payments (retry if failed)
+   * Based on: Class Diagram - Payment has relationship with Order (1..*)
    */
-  @ManyToOne(() => Order, {
+  @ManyToOne(() => Order, (order) => order.payments, {
     nullable: false,
     onDelete: 'RESTRICT',
   })
   @JoinColumn({ name: 'order_id' })
   order: Order;
-}
+
+  // ========================================
+  // METHODS (sesuai Class Diagram)
+  // ========================================
+
+  /**
+   * Buat transaksi Midtrans
+   * Implementation: Dihandle di PaymentService untuk integration dengan Midtrans API
+   * 
+   * @returns Transaction ID atau Snap token dari Midtrans
+   */
+  buatTransaksiMidtrans(): string {
+    // Implementation di service layer
+    return this.transactionId;
+  }
+
+  /**
+   * Handle webhook dari Midtrans
+   * Implementation: Dihandle di PaymentService untuk process webhook payload
+   * 
+   * @param payload Webhook payload dari Midtrans
+   */
+  handleWebhook(payload: Record<string, any>): void {
+    if (payload) {
+      this.webhookPayload = JSON.stringify(payload);
+      this.diupdatePada = new Date();
+    }
+  }
+
+  /**
+   * Verifikasi signature dari webhook Midtrans
+   * Implementation: Dihandle di PaymentService dengan Midtrans secret key
+   * 
+   * @param signature Signature dari Midtrans
+   * @returns true jika valid, false jika tidak
+   */
+  verifySignature(signature: string): boolean {
+    // Implementation di service layer dengan Midtrans secret key
+    return signature === this.signatureKey;
+  }
+
+  /**
+   * Proses refund untuk payment
+   * Implementation: Dihandle di PaymentService untuk integration dengan Midtrans refund API
+   * 
+   * @returns true jika refund berhasil, false jika gagal
+   */
+  prosesRefund(): boolean {
+    // Implementation di service layer
+    if (this.status === PaymentStatus.SETTLEMENT) {
+      this.status = PaymentStatus.REFUND;
+      this.diupdatePada = new Date();
+      return true;
+    }
+    return false;
+  }
 

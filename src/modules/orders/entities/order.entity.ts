@@ -6,10 +6,13 @@ import {
   UpdateDateColumn,
   ManyToOne,
   OneToMany,
+  OneToOne,
   JoinColumn,
 } from 'typeorm';
 import { User } from '../../auth/entities/user.entity';
 import { OrderItem } from './order-item.entity';
+import { Payment } from '../../payments/entities/payment.entity';
+import { Shipment } from '../../shipments/entities/shipment.entity';
 import { OrderStatus } from '../../../common/enums/order-status.enum';
 import { OrderType } from '../../../common/enums/order-type.enum';
 
@@ -96,6 +99,9 @@ export class Order {
   @Column({ type: 'text', nullable: true })
   catatan: string;
 
+  @Column({ name: 'payment_method', length: 50, nullable: true })
+  metodePembayaran: string;
+
   @Column({ name: 'estimated_delivery', type: 'timestamp', nullable: true })
   estimasiPengiriman: Date;
 
@@ -143,6 +149,9 @@ export class Order {
   @UpdateDateColumn({ name: 'updated_at' })
   diupdatePada: Date;
 
+  @Column({ name: 'shipped_at', type: 'timestamp', nullable: true })
+  dikirimPada: Date;
+
   // ========================================
   // RELATIONSHIPS
   // ========================================
@@ -151,7 +160,7 @@ export class Order {
    * User Relationship
    * Setiap order belongs to satu user
    */
-  @ManyToOne(() => User, {
+  @ManyToOne(() => User, (user) => user.orders, {
     nullable: false,
     onDelete: 'RESTRICT',
   })
@@ -160,11 +169,112 @@ export class Order {
 
   /**
    * OrderItems Relationship
-   * Setiap order memiliki banyak order items
+   * Setiap order memiliki banyak order items (1..*)
+   * Based on: Class Diagram - Order contains 1..* OrderItem
    */
   @OneToMany(() => OrderItem, (orderItem) => orderItem.order, {
     cascade: true,
   })
   items: OrderItem[];
+
+  /**
+   * Payment Relationship
+   * Setiap order bisa memiliki banyak payments (1..*)
+   * Based on: Class Diagram - Order has 1..* Payment
+   */
+  @OneToMany(() => Payment, (payment) => payment.order, {
+    cascade: true,
+  })
+  payments: Payment[];
+
+  /**
+   * Shipment Relationship
+   * Setiap order bisa memiliki maksimal 1 shipment (0..1)
+   * Based on: Class Diagram - Order has 0..1 Shipment
+   */
+  @OneToOne(() => Shipment, (shipment) => shipment.order, {
+    nullable: true,
+    cascade: true,
+  })
+  shipment: Shipment;
+
+  // ========================================
+  // METHODS (sesuai Class Diagram)
+  // ========================================
+
+  /**
+   * Generate nomor order unik
+   * Format: ORD-YYYYMMDD-XXXXXX
+   * Implementation: Dihandle di service layer
+   * 
+   * @returns Nomor order yang baru
+   */
+  generateNomorOrder(): string {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+    return `ORD-${year}${month}${day}-${random}`;
+  }
+
+  /**
+   * Hitung total order
+   * Total = subtotal + ongkosKirim
+   * 
+   * @returns Total order (decimal)
+   */
+  hitungTotal(): number {
+    return Number(this.subtotal) + Number(this.ongkosKirim);
+  }
+
+  /**
+   * Update status order
+   * Implementation: Dihandle di service layer dengan validation
+   * 
+   * @param statusBaru Status order yang baru
+   */
+  updateStatus(statusBaru: OrderStatus): void {
+    this.status = statusBaru;
+    this.diupdatePada = new Date();
+  }
+
+  /**
+   * Batalkan order
+   * Set status = CANCELLED dan simpan waktu pembatalan
+   * Implementation: Dihandle di service layer
+   */
+  batalkanOrder(): void {
+    this.status = OrderStatus.CANCELLED;
+    this.dibatalkanPada = new Date();
+    this.diupdatePada = new Date();
+  }
+
+  /**
+   * Ambil semua items dalam order
+   * 
+   * @returns Array dari OrderItem
+   */
+  ambilItems(): OrderItem[] {
+    return this.items || [];
+  }
+
+  /**
+   * Ambil semua payments untuk order
+   * 
+   * @returns Array dari Payment
+   */
+  ambilPayments(): Payment[] {
+    return this.payments || [];
+  }
+
+  /**
+   * Ambil shipment untuk order
+   * 
+   * @returns Shipment atau undefined jika belum ada
+   */
+  ambilShipment(): Shipment | undefined {
+    return this.shipment;
+  }
 }
 

@@ -48,7 +48,8 @@ export class ShipmentsService {
 
     if (
       order.status !== OrderStatus.PAID &&
-      order.status !== OrderStatus.PROCESSING
+      order.status !== OrderStatus.IN_PRODUCTION &&
+      order.status !== OrderStatus.READY_TO_SHIP
     ) {
       throw new BadRequestException(
         `Order dengan status ${order.status} tidak dapat dikirim`,
@@ -73,7 +74,7 @@ export class ShipmentsService {
     });
 
     if (order.status === OrderStatus.PAID) {
-      order.status = OrderStatus.PROCESSING;
+      order.status = OrderStatus.READY_TO_SHIP;
       await this.orderRepository.save(order);
     }
 
@@ -142,9 +143,9 @@ export class ShipmentsService {
       order_note: `Order #${order.nomorOrder}`,
       items: order.items.map((item) => ({
         id: item.id,
-        name: item.namaProduk,
-        description: item.namaProduk,
-        value: Number(item.hargaSnapshot),
+        name: item.namaProduct,
+        description: item.namaProduct,
+        value: Number(item.hargaSatuan),
         length: 10, // cm - sesuaikan dengan data produk
         width: 10,
         height: 10,
@@ -177,7 +178,7 @@ export class ShipmentsService {
     } as any);
 
     // Update order status
-    order.status = OrderStatus.PROCESSING;
+    order.status = OrderStatus.READY_TO_SHIP;
     await this.orderRepository.save(order);
 
     return await this.shipmentRepository.save(shipment as any);
@@ -289,5 +290,105 @@ export class ShipmentsService {
    */
   async cariLokasi(query: string) {
     return await this.biteshipService.cariLokasi(query, 'ID');
+  }
+
+  /**
+   * Update tracking info
+   * Menggunakan method entity: updateTrackingInfo()
+   * 
+   * @param shipmentId - ID shipment
+   * @param nomorResi - Nomor resi baru
+   */
+  async updateTrackingInfoShipment(shipmentId: string, nomorResi: string): Promise<Shipment> {
+    const shipment = await this.shipmentRepository.findOne({
+      where: { id: shipmentId },
+    });
+
+    if (!shipment) {
+      throw new NotFoundException('Shipment tidak ditemukan');
+    }
+
+    // Gunakan method entity
+    shipment.updateTrackingInfo(nomorResi);
+
+    return await this.shipmentRepository.save(shipment);
+  }
+
+  /**
+   * Update status shipment
+   * Menggunakan method entity: updateStatus()
+   * 
+   * @param shipmentId - ID shipment
+   * @param statusBaru - Status baru
+   */
+  async updateStatusShipment(shipmentId: string, statusBaru: ShipmentStatus): Promise<Shipment> {
+    const shipment = await this.shipmentRepository.findOne({
+      where: { id: shipmentId },
+    });
+
+    if (!shipment) {
+      throw new NotFoundException('Shipment tidak ditemukan');
+    }
+
+    // Gunakan method entity
+    shipment.updateStatus(statusBaru);
+
+    return await this.shipmentRepository.save(shipment);
+  }
+
+  /**
+   * Tandai shipment sebagai dikirim
+   * Menggunakan method entity: tandaSebagaiDikirim()
+   * 
+   * @param shipmentId - ID shipment
+   */
+  async tandaSebagaiDikirimShipment(shipmentId: string): Promise<Shipment> {
+    const shipment = await this.shipmentRepository.findOne({
+      where: { id: shipmentId },
+      relations: ['order'],
+    });
+
+    if (!shipment) {
+      throw new NotFoundException('Shipment tidak ditemukan');
+    }
+
+    // Gunakan method entity
+    shipment.tandaSebagaiDikirim();
+
+    // Update order status
+    const order = shipment.order;
+    order.status = OrderStatus.SHIPPED;
+    order.dikirimPada = new Date();
+    await this.orderRepository.save(order);
+
+    return await this.shipmentRepository.save(shipment);
+  }
+
+  /**
+   * Tandai shipment sebagai diterima
+   * Menggunakan method entity: tandaSebagaiDiterima()
+   * 
+   * @param shipmentId - ID shipment
+   */
+  async tandaSebagaiDiterimaShipment(shipmentId: string): Promise<Shipment> {
+    const shipment = await this.shipmentRepository.findOne({
+      where: { id: shipmentId },
+      relations: ['order'],
+    });
+
+    if (!shipment) {
+      throw new NotFoundException('Shipment tidak ditemukan');
+    }
+
+    // Gunakan method entity
+    shipment.tandaSebagaiDiterima();
+
+    // Update order status
+    const order = shipment.order;
+    order.status = OrderStatus.DELIVERED;
+    order.diselesaikanPada = new Date();
+    await this.orderRepository.save(order);
+
+    return await this.shipmentRepository.save(shipment);
   }
 }

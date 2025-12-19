@@ -174,5 +174,47 @@ export class CategoriesService {
       message: 'Kategori berhasil dihapus',
     };
   }
+
+  /**
+   * Ambil semua sub-kategori
+   * Menggunakan method entity: ambilSubKategori()
+   * 
+   * @param categoryId - ID kategori
+   * @returns Array dari Category (sub-categories)
+   */
+  async ambilSubKategoriCategory(categoryId: string): Promise<Category[]> {
+    const category = await this.categoryRepository.findOne({
+      where: { id: categoryId },
+      relations: ['subKategori'],
+    });
+
+    if (!category) {
+      throw new NotFoundException('Kategori tidak ditemukan');
+    }
+
+    // Gunakan method entity
+    return category.ambilSubKategori();
+  }
+
+  /**
+   * Ambil semua products dalam kategori
+   * Menggunakan method entity: ambilProducts()
+   * 
+   * @param categoryId - ID kategori
+   * @returns Array dari Product
+   */
+  async ambilProductsCategory(categoryId: string): Promise<any[]> {
+    const category = await this.categoryRepository.findOne({
+      where: { id: categoryId },
+      relations: ['products'],
+    });
+
+    if (!category) {
+      throw new NotFoundException('Kategori tidak ditemukan');
+    }
+
+    // Gunakan method entity
+    return category.ambilProducts();
+  }
 }
 

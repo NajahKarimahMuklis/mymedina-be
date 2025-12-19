@@ -94,8 +94,43 @@ export class Product {
   /**
    * Product Variants Relationship
    * Satu produk bisa punya banyak variant (size, color)
+   * Based on: Class Diagram - Product has 1..* ProductVariant
    */
   @OneToMany(() => ProductVariant, (variant) => variant.product)
   variants: ProductVariant[];
+
+  // ========================================
+  // METHODS (sesuai Class Diagram)
+  // ========================================
+
+  /**
+   * Ambil semua variants dari product
+   * 
+   * @returns Array dari ProductVariant
+   */
+  ambilVariants(): ProductVariant[] {
+    return this.variants || [];
+  }
+
+  /**
+   * Ambil total stok tersedia dari semua variants
+   * 
+   * @returns Total stok (integer)
+   */
+  ambilStokTersedia(): number {
+    if (!this.variants || this.variants.length === 0) {
+      return 0;
+    }
+    return this.variants.reduce((total, variant) => total + (variant.stok || 0), 0);
+  }
+
+  /**
+   * Cek apakah product tersedia (ada stok dan aktif)
+   * 
+   * @returns true jika tersedia, false jika tidak
+   */
+  isTersedia(): boolean {
+    return this.aktif && this.ambilStokTersedia() > 0;
+  }
 }
 

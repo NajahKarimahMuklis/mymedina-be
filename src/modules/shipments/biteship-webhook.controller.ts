@@ -33,25 +33,22 @@ export class BiteshipWebhookController {
 
     switch (status) {
       case 'confirmed':
-        shipment.status = ShipmentStatus.CONFIRMED;
-        shipment.updateTrackingInfo(courier?.waybill_id);
-        break;
-
       case 'allocated':
       case 'picking_up':
-        shipment.status = ShipmentStatus.PICKED_UP;
+        shipment.status = ShipmentStatus.READY_TO_SHIP;
+        shipment.updateTrackingInfo(courier?.waybill_id);
         break;
 
       case 'picked':
       case 'dropping_off':
-        shipment.tandaiSebagaiDikirim();
+        shipment.tandaSebagaiDikirim();
         shipment.order.status = OrderStatus.SHIPPED;
         await this.orderRepository.save(shipment.order);
         break;
 
       case 'delivered':
-        shipment.tandaiSebagaiDiterima();
-        shipment.order.status = OrderStatus.COMPLETED;
+        shipment.tandaSebagaiDiterima();
+        shipment.order.status = OrderStatus.DELIVERED;
         shipment.order.diselesaikanPada = new Date();
         await this.orderRepository.save(shipment.order);
         break;
