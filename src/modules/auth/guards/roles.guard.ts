@@ -25,21 +25,23 @@ export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    // Ambil roles yang dibutuhkan dari @Roles() decorator
-    const requiredRoles = this.reflector.getAllAndOverride<Role[]>('roles', [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredRoles = this.reflector.getAllAndOverride<Role[]>(
+      'roles',
+      [context.getHandler(), context.getClass()],
+    );
 
-    // Jika tidak ada @Roles() decorator, allow access
     if (!requiredRoles) {
       return true;
     }
 
-    // Ambil user dari request (sudah di-attach oleh JwtAuthGuard)
-    const { user } = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest();
+    const user = request.user;
 
-    // Cek apakah user memiliki salah satu role yang dibutuhkan
-    return requiredRoles.some((role) => user.role === role);
+    // 🔥 FIX UTAMA
+    if (!user || !user.role) {
+      return false; // akan jadi 403
+    }
+
+    return requiredRoles.includes(user.role);
   }
 }

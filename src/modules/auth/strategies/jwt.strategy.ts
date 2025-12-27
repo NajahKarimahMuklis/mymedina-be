@@ -64,7 +64,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     // Return user (akan di-attach ke request.user)
     // Jangan return password!
-    const { hashPassword: _, ...userTanpaPassword } = user;
-    return userTanpaPassword;
+    return {
+      userId: user.id,
+      email: user.email,
+      role: user.role, // 🔥 INI KUNCI UTAMA
+    };    
   }
 }

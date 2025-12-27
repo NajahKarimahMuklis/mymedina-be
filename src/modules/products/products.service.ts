@@ -2,30 +2,19 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull, Not } from 'typeorm';
 import { Category } from '../categories/entities/category.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './entities/product.entity';
 
-/**
- * Products Service
- *
- * Bertanggung jawab untuk business logic produk.
- *
- * OOP Concepts:
- * - Encapsulation: Business logic untuk products
- * - Single Responsibility: Hanya handle product logic
- * - Dependency Injection: Inject Repository
- *
- * Design Patterns:
- * - Service Pattern: Business logic layer
- * - Repository Pattern: Data access via TypeORM Repository
- */
 @Injectable()
 export class ProductsService {
+  private readonly logger = new Logger(ProductsService.name);
+
   constructor(
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
@@ -33,14 +22,7 @@ export class ProductsService {
     private readonly categoryRepository: Repository<Category>,
   ) {}
 
-  /**
-   * Buat Produk Baru
-   *
-   * @param createProductDto - Data produk baru
-   * @returns Produk yang baru dibuat
-   */
   async buatProduk(createProductDto: CreateProductDto): Promise<Product> {
-    // Validasi category exists
     const category = await this.categoryRepository.findOne({
       where: { id: createProductDto.categoryId },
     });
@@ -49,7 +31,6 @@ export class ProductsService {
       throw new NotFoundException('Kategori tidak ditemukan');
     }
 
-    // Cek apakah slug sudah digunakan
     const slugSudahAda = await this.productRepository.findOne({
       where: { slug: createProductDto.slug },
     });
@@ -58,16 +39,13 @@ export class ProductsService {
       throw new ConflictException('Slug produk sudah digunakan');
     }
 
-    // Buat produk baru
     const produkBaru = this.productRepository.create(createProductDto);
     return await this.productRepository.save(produkBaru);
   }
 
   /**
-   * Ambil Semua Produk dengan Pagination, Filter, Search
-   *
-   * @param options - Query options (page, limit, search, categoryId, status, active)
-   * @returns List produk dengan pagination info
+   * ULTRA SIMPLE VERSION - NO QueryBuilder, NO Complex Logic
+   * Ini versi paling minimal untuk debug
    */
   async ambilSemuaProduk(options: {
     page?: number;
@@ -83,97 +61,133 @@ export class ProductsService {
     limit: number;
     totalPages: number;
   }> {
-    const page = options.page || 1;
-    const limit = options.limit || 10;
-    const skip = (page - 1) * limit;
+    try {
+      const page = options.page || 1;
+      const limit = options.limit || 10;
+      const skip = (page - 1) * limit;
 
-    const query = this.productRepository
-      .createQueryBuilder('product')
-      .leftJoinAndSelect('product.category', 'category');
+      this.logger.log(`[ambilSemuaProduk] START - Options: ${JSON.stringify(options)}`);
 
-    // Filter by search (nama atau deskripsi)
-    if (options.search) {
-      query.andWhere(
-        '(product.nama ILIKE :search OR product.deskripsi ILIKE :search)',
-        { search: `%${options.search}%` },
-      );
-    }
-
-    // Filter by category
-    if (options.categoryId) {
-      query.andWhere('product.categoryId = :categoryId', {
-        categoryId: options.categoryId,
+      // STEP 1: Coba query paling sederhana dulu - TANPA RELATIONS
+      this.logger.log('[ambilSemuaProduk] Step 1: Find all products without relations');
+      
+      const allProducts = await this.productRepository.find({
+        order: {
+          dibuatPada: 'DESC',
+        },
       });
+
+      this.logger.log(`[ambilSemuaProduk] Found ${allProducts.length} products total`);
+
+      // STEP 2: Filter di memory (bukan di database)
+      let filteredProducts = allProducts;
+
+      // Filter soft deleted
+      filteredProducts = filteredProducts.filter(p => !p.dihapusPada);
+      this.logger.log(`[ambilSemuaProduk] After soft-delete filter: ${filteredProducts.length}`);
+
+      // Filter active
+      if (options.active !== undefined) {
+        filteredProducts = filteredProducts.filter(p => p.aktif === options.active);
+      } else {
+        filteredProducts = filteredProducts.filter(p => p.aktif === true);
+      }
+      this.logger.log(`[ambilSemuaProduk] After active filter: ${filteredProducts.length}`);
+
+      // Filter category
+      if (options.categoryId) {
+        filteredProducts = filteredProducts.filter(p => p.categoryId === options.categoryId);
+      }
+
+      // Filter status
+      if (options.status) {
+        filteredProducts = filteredProducts.filter(p => p.status === options.status);
+      }
+
+      // Filter search
+      if (options.search) {
+        const searchLower = options.search.toLowerCase();
+        filteredProducts = filteredProducts.filter(p => 
+          p.nama?.toLowerCase().includes(searchLower) || 
+          p.deskripsi?.toLowerCase().includes(searchLower)
+        );
+      }
+
+      const total = filteredProducts.length;
+      this.logger.log(`[ambilSemuaProduk] Total after all filters: ${total}`);
+
+      // STEP 3: Pagination di memory
+      const paginatedProducts = filteredProducts.slice(skip, skip + limit);
+      this.logger.log(`[ambilSemuaProduk] Returning ${paginatedProducts.length} products for page ${page}`);
+
+      // STEP 4: Load category manually untuk setiap product
+      for (const product of paginatedProducts) {
+        try {
+          const category = await this.categoryRepository.findOne({
+            where: { id: product.categoryId },
+          });
+          if (category) {
+            product.category = category;
+          }
+        } catch (err) {
+          this.logger.error(`Failed to load category for product ${product.id}: ${err.message}`);
+        }
+      }
+
+      this.logger.log('[ambilSemuaProduk] SUCCESS');
+
+      return {
+        data: paginatedProducts,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
+
+    } catch (error) {
+      this.logger.error(`[ambilSemuaProduk] ERROR: ${error.message}`);
+      this.logger.error(error.stack);
+      throw error;
     }
-
-    // Filter by status
-    if (options.status) {
-      query.andWhere('product.status = :status', { status: options.status });
-    }
-
-    // Filter by active (default: true)
-    if (options.active !== undefined) {
-      query.andWhere('product.aktif = :aktif', { aktif: options.active });
-    } else {
-      query.andWhere('product.aktif = :aktif', { aktif: true });
-    }
-
-    // Exclude soft-deleted products
-    query.andWhere('product.dihapusPada IS NULL');
-
-    // Count total
-    const total = await query.getCount();
-
-    // Apply pagination
-    query.skip(skip).take(limit);
-
-    // Order by created_at DESC
-    query.orderBy('product.dibuatPada', 'DESC');
-
-    const data = await query.getMany();
-
-    return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
   }
 
-  /**
-   * Ambil Produk Berdasarkan ID
-   *
-   * @param id - ID produk
-   * @returns Produk
-   */
   async ambilProdukById(id: string): Promise<Product> {
-    const product = await this.productRepository.findOne({
-      where: { id },
-      relations: ['category'],
-    });
+    try {
+      this.logger.log(`[ambilProdukById] Finding product ${id}`);
+      
+      const product = await this.productRepository.findOne({
+        where: { id },
+      });
 
-    if (!product || product.dihapusPada) {
-      throw new NotFoundException('Produk tidak ditemukan');
+      if (!product || product.dihapusPada) {
+        throw new NotFoundException('Produk tidak ditemukan');
+      }
+
+      // Load category manually
+      try {
+        const category = await this.categoryRepository.findOne({
+          where: { id: product.categoryId },
+        });
+        if (category) {
+          product.category = category;
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to load category: ${err.message}`);
+      }
+
+      return product;
+    } catch (error) {
+      this.logger.error(`[ambilProdukById] ERROR: ${error.message}`);
+      throw error;
     }
-
-    return product;
   }
 
-  /**
-   * Update Produk
-   *
-   * @param id - ID produk
-   * @param updateProductDto - Data update
-   * @returns Produk yang diupdate
-   */
   async updateProduk(
     id: string,
     updateProductDto: UpdateProductDto,
   ): Promise<Product> {
     const product = await this.ambilProdukById(id);
 
-    // Jika categoryId diubah, validasi category exists
     if (updateProductDto.categoryId) {
       const category = await this.categoryRepository.findOne({
         where: { id: updateProductDto.categoryId },
@@ -184,7 +198,6 @@ export class ProductsService {
       }
     }
 
-    // Jika slug diubah, cek apakah slug baru sudah digunakan
     if (updateProductDto.slug && updateProductDto.slug !== product.slug) {
       const slugSudahAda = await this.productRepository.findOne({
         where: { slug: updateProductDto.slug },
@@ -195,24 +208,12 @@ export class ProductsService {
       }
     }
 
-    // Update produk
     Object.assign(product, updateProductDto);
     return await this.productRepository.save(product);
   }
 
-  /**
-   * Hapus Produk (Soft Delete)
-   *
-   * @param id - ID produk
-   * @returns Success message
-   */
   async hapusProduk(id: string): Promise<{ message: string }> {
     const product = await this.ambilProdukById(id);
-
-    // TODO: Cek apakah produk memiliki variants
-    // Akan diimplementasikan setelah ProductVariant entity dibuat
-
-    // Soft delete
     await this.productRepository.softRemove(product);
 
     return {
@@ -220,13 +221,6 @@ export class ProductsService {
     };
   }
 
-  /**
-   * Ambil semua variants dari product
-   * Menggunakan method entity: ambilVariants()
-   *
-   * @param productId - ID produk
-   * @returns Array dari ProductVariant
-   */
   async ambilVariantsProduct(productId: string): Promise<any[]> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
@@ -237,17 +231,9 @@ export class ProductsService {
       throw new NotFoundException('Produk tidak ditemukan');
     }
 
-    // Gunakan method entity
     return product.ambilVariants();
   }
 
-  /**
-   * Ambil total stok tersedia dari semua variants
-   * Menggunakan method entity: ambilStokTersedia()
-   *
-   * @param productId - ID produk
-   * @returns Total stok
-   */
   async ambilStokTersediaProduct(productId: string): Promise<number> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
@@ -258,17 +244,9 @@ export class ProductsService {
       throw new NotFoundException('Produk tidak ditemukan');
     }
 
-    // Gunakan method entity
     return product.ambilStokTersedia();
   }
 
-  /**
-   * Cek apakah product tersedia
-   * Menggunakan method entity: isTersedia()
-   *
-   * @param productId - ID produk
-   * @returns true jika tersedia, false jika tidak
-   */
   async isTersediaProduct(productId: string): Promise<boolean> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
@@ -279,7 +257,6 @@ export class ProductsService {
       throw new NotFoundException('Produk tidak ditemukan');
     }
 
-    // Gunakan method entity
     return product.isTersedia();
   }
 }

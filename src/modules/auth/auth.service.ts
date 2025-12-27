@@ -168,7 +168,7 @@ export class AuthService {
 
     // Generate JWT token
     const payload = {
-      userId: user.id,
+      sub: user.id,        // 🔥 FIX DI SINI
       email: user.email,
       role: user.role,
     };

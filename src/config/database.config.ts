@@ -1,5 +1,6 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { DataSourceOptions } from 'typeorm';
+import { join } from 'path';
 
 /**
  * Database Configuration
@@ -16,8 +17,10 @@ export const databaseConfig = (): DataSourceOptions => ({
   username: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_NAME || 'mymedina',
-  entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  logging: ['error', 'warn'], // Only log errors and warnings, not SELECT queries
-  migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
+  // Use process.cwd() for absolute path - works in both dev and prod
+  entities: [join(process.cwd(), 'dist/**/*.entity.js')],
+  logging: ['error', 'warn'], // Only log errors and warnings
+  migrations: [join(process.cwd(), 'dist/database/migrations/*.js')],
   migrationsRun: true, // Auto-run migrations on startup
+  synchronize: false, // Disable auto-sync to prevent schema conflicts
 });
