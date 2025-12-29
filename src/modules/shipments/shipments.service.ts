@@ -257,26 +257,56 @@ export class ShipmentsService {
     return await this.shipmentRepository.save(shipment);
   }
 
-  /**
-   * Tracking dari Biteship
-   */
-  async trackingDariBiteship(shipmentId: string) {
+  async getShipmentByOrderId(orderId: string): Promise<Shipment | null> {
     const shipment = await this.shipmentRepository.findOne({
-      where: { id: shipmentId },
+      where: { orderId },
+      relations: ['order', 'order.user'],
     });
 
-    if (!shipment) {
-      throw new NotFoundException('Shipment tidak ditemukan');
+    return shipment; // Return null jika tidak ada, jangan throw error
+  }
+  async createManualShipment(data: {
+    orderId: string;
+    kurir: string;
+    layanan?: string;
+    nomorResi: string;
+    biaya?: number;
+  }) {
+    const order = await this.orderRepository.findOne({
+      where: { id: data.orderId },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order tidak ditemukan');
     }
 
-    if (!shipment.courierWaybillId || !shipment.kurir) {
-      throw new BadRequestException('Data tracking tidak lengkap');
+    if (order.status !== OrderStatus.PAID) {
+      throw new BadRequestException('Order belum dibayar');
     }
 
-    return await this.biteshipService.trackingShipment(
-      shipment.courierWaybillId,
-      shipment.kurir,
-    );
+    const existing = await this.shipmentRepository.findOne({
+      where: { orderId: data.orderId },
+    });
+
+    if (existing) {
+      throw new BadRequestException('Shipment sudah ada');
+    }
+
+    const shipment = this.shipmentRepository.create({
+      orderId: data.orderId,
+      kurir: data.kurir,
+      layanan: data.layanan,
+      nomorResi: data.nomorResi,
+      biaya: data.biaya,
+      status: ShipmentStatus.SHIPPED,
+      deskripsi: `Pengiriman manual via ${data.kurir}`,
+      dikirimPada: new Date(),
+    });
+
+    order.status = OrderStatus.SHIPPED;
+    await this.orderRepository.save(order);
+
+    return this.shipmentRepository.save(shipment);
   }
 
   /**
@@ -312,7 +342,7 @@ export class ShipmentsService {
       postal_code: order.kodePos,
     };
 
-    const items = (order.items || []).map(item => ({
+    const items = (order.items || []).map((item) => ({
       name: item.namaProduct,
       description: item.namaProduct,
       quantity: item.kuantitas,
@@ -325,7 +355,10 @@ export class ShipmentsService {
       shipper,
       receiver,
       items,
-      courier_code: (order as any).selectedCourierCode || (order as any).shipmentCourierCode || 'jne',
+      courier_code:
+        (order as any).selectedCourierCode ||
+        (order as any).shipmentCourierCode ||
+        'jne',
       courier_service_code: (order as any).selectedServiceCode || '',
       notes: order.catatan || '',
     };

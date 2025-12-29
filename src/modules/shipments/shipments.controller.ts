@@ -1,4 +1,3 @@
-// src/shipment/shipment.controller.ts
 import {
   Controller,
   Post,
@@ -6,16 +5,25 @@ import {
   Get,
   Query,
   Param,
+  Put,
   BadRequestException,
   Logger,
   HttpCode,
   HttpStatus,
+  UseGuards,
+  Request,
+  NotFoundException,
 } from '@nestjs/common';
 import { ShipmentsService } from './shipments.service';
 import { BiteshipService } from './biteship.service';
 import { CheckRatesDto } from './dto/check-rates.dto';
+import { UpdateTrackingDto } from './dto/update-tracking.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Role } from '../../common/enums/role.enum';
 
-@Controller('shipment')
+@Controller('shipments')
 export class ShipmentController {
   private readonly logger = new Logger(ShipmentController.name);
 
@@ -28,7 +36,7 @@ export class ShipmentController {
   @HttpCode(HttpStatus.OK)
   async getAreas(@Query('input') input: string) {
     const result = await this.biteshipService.cariLokasi(input || '', 'ID');
-    return result; // Selalu return { areas: [...] } bahkan kalau kosong
+    return result;
   }
 
   @Post('rates')
@@ -38,7 +46,6 @@ export class ShipmentController {
       this.logger.log('📤 Calculating shipping rates');
       this.logger.debug('Payload:', JSON.stringify(body, null, 2));
 
-      // ✅ Validasi - Support both area_id dan postal_code
       const hasAreaId = body.origin_area_id && body.destination_area_id;
       const hasPostalCode =
         body.origin_postal_code && body.destination_postal_code;
@@ -53,7 +60,6 @@ export class ShipmentController {
         throw new BadRequestException('Items tidak boleh kosong');
       }
 
-      // ✅ Build payload untuk Biteship
       const biteshipPayload: any = {
         couriers: body.couriers || 'jne,jnt,sicepat,anteraja,pos',
         items: body.items.map((item) => ({
@@ -68,7 +74,6 @@ export class ShipmentController {
         })),
       };
 
-      // ✅ Prioritas: postal_code dulu, fallback ke area_id
       if (hasPostalCode) {
         biteshipPayload.origin_postal_code = body.origin_postal_code;
         biteshipPayload.destination_postal_code = body.destination_postal_code;
@@ -79,7 +84,6 @@ export class ShipmentController {
         this.logger.log('Using area_id method');
       }
 
-      // Call Biteship
       const result = await this.biteshipService.cekOngkir(biteshipPayload);
 
       this.logger.log('✅ Biteship response SUCCESS');
@@ -94,7 +98,6 @@ export class ShipmentController {
       );
       this.logger.error('Error Message:', error.message);
 
-      // Jika error dari Biteship, kirim detail lengkap ke frontend
       if (error.response?.data) {
         throw new BadRequestException({
           message: error.response.data.message || 'Gagal menghitung ongkir',
@@ -105,7 +108,6 @@ export class ShipmentController {
         });
       }
 
-      // Jika error internal (bukan dari Biteship)
       throw new BadRequestException({
         message: 'Terjadi kesalahan saat menghitung ongkir',
         error: error.message,
@@ -130,22 +132,136 @@ export class ShipmentController {
     }
   }
 
-  @Get('tracking/:waybill/:courier')
+  // ✅ GET SHIPMENT BY ORDER ID (untuk customer & admin)
+  @Get('order/:orderId')
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async tracking(
-    @Param('waybill') waybill: string,
-    @Param('courier') courier: string,
-  ) {
-    if (!waybill || !courier) {
-      throw new BadRequestException('Waybill dan courier wajib diisi');
-    }
+  async getShipmentByOrder(@Param('orderId') orderId: string, @Request() req) {
+    this.logger.log(`📦 Getting shipment for order: ${orderId}`);
 
     try {
-      return await this.biteshipService.trackingShipment(waybill, courier);
+      const shipment =
+        await this.shipmentsService.getShipmentByOrderId(orderId);
+
+      if (!shipment) {
+        throw new NotFoundException('Shipment tidak ditemukan');
+      }
+
+      // Check authorization: only owner or admin
+      const userId = req.user.userId;
+      const isAdmin =
+        req.user.role === Role.ADMIN || req.user.role === Role.OWNER;
+
+      if (!isAdmin && shipment.order?.user?.id !== userId) {
+        throw new BadRequestException(
+          'Anda tidak memiliki akses ke shipment ini',
+        );
+      }
+
+      return {
+        success: true,
+        shipment: {
+          id: shipment.id,
+          orderId: shipment.orderId,
+          nomorResi: shipment.nomorResi,
+          courierWaybillId: shipment.courierWaybillId,
+          kurir: shipment.kurir,
+          layanan: shipment.layanan,
+          status: shipment.status,
+          biaya: shipment.biaya,
+          deskripsi: shipment.deskripsi,
+          estimasiPengiriman: shipment.estimasiPengiriman,
+          dikirimPada: shipment.dikirimPada,
+          diterimaPada: shipment.diterimaPada,
+          courierTrackingUrl: shipment.courierTrackingUrl,
+          biteshipOrderId: shipment.biteshipOrderId,
+          biteshipTrackingId: shipment.biteshipTrackingId,
+        },
+      };
     } catch (error) {
+      this.logger.error('❌ Failed to get shipment:', error.message);
+      throw error;
+    }
+  }
+
+  @Post('manual')
+  @HttpCode(HttpStatus.CREATED)
+  async createManualShipment(@Body() body: any) {
+    const { orderId, kurir, layanan, nomorResi, biaya } = body;
+
+    if (!orderId || !kurir || !nomorResi) {
+      throw new BadRequestException(
+        'orderId, kurir, dan nomorResi wajib diisi',
+      );
+    }
+
+    return this.shipmentsService.createManualShipment({
+      orderId,
+      kurir,
+      layanan,
+      nomorResi,
+      biaya,
+    });
+  }
+
+  // ✅ GET SHIPMENT INFO UNTUK CUSTOMER (cuma info resi, biar cek sendiri)
+  @Get('tracking/:orderId')
+  @HttpCode(HttpStatus.OK)
+  async trackingCustomer(@Param('orderId') orderId: string) {
+    const shipment = await this.shipmentsService.getShipmentByOrderId(orderId);
+
+    if (!shipment) {
+      return {
+        success: true,
+        hasShipment: false,
+        message: 'Shipment belum dibuat',
+      };
+    }
+
+    return {
+      success: true,
+      hasShipment: true,
+      tracking: {
+        nomorResi: shipment.nomorResi,
+        kurir: shipment.kurir,
+        layanan: shipment.layanan,
+        status: shipment.status,
+        courierTrackingUrl: shipment.courierTrackingUrl,
+      },
+    };
+  }
+
+  // ✅ UPDATE TRACKING INFO (Admin Only)
+  @Put(':id/tracking')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.OWNER)
+  @HttpCode(HttpStatus.OK)
+  async updateTracking(
+    @Param('id') shipmentId: string,
+    @Body() dto: UpdateTrackingDto,
+  ) {
+    this.logger.log(`📝 Updating tracking info for shipment ${shipmentId}`);
+
+    try {
+      const shipment = await this.shipmentsService.updateTrackingInfoShipment(
+        shipmentId,
+        dto.nomorResi,
+      );
+
+      if (dto.kurir) {
+        shipment.kurir = dto.kurir;
+      }
+
+      return {
+        success: true,
+        message: 'Tracking info berhasil diupdate',
+        shipment,
+      };
+    } catch (error) {
+      this.logger.error('❌ Failed to update tracking:', error.message);
       throw new BadRequestException({
-        message: error.response?.data?.message || 'Gagal tracking',
-        details: error.response?.data,
+        message: 'Gagal update tracking info',
+        error: error.message,
       });
     }
   }
