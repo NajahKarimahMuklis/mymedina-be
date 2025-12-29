@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import axios from 'axios';
 import * as midtransClient from 'midtrans-client';
 import { Repository } from 'typeorm';
 import { OrderStatus } from '../../common/enums/order-status.enum';
@@ -52,7 +53,7 @@ export class PaymentsService {
   /**
    * Generate unique transaction ID with timestamp for better uniqueness
    * Format: TRX-YYYYMMDD-HHMMSS-RND
-   * 
+   *
    * FIX: Menambahkan timestamp lengkap dan random number untuk menghindari collision
    */
   private generateTransactionId(): string {
@@ -63,10 +64,10 @@ export class PaymentsService {
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const seconds = String(now.getSeconds()).padStart(2, '0');
-    
+
     // Add random 4-digit number untuk extra uniqueness
     const random = Math.floor(1000 + Math.random() * 9000);
-    
+
     return `TRX-${year}${month}${day}-${hours}${minutes}${seconds}-${random}`;
   }
 
@@ -132,7 +133,10 @@ export class PaymentsService {
         id: item.variantId,
         price: Math.round(Number(item.hargaSatuan)),
         quantity: item.kuantitas,
-        name: `${item.namaProduct} - ${item.ukuranVariant} ${item.warnaVariant}`.substring(0, 50), // Midtrans limit 50 chars
+        name: `${item.namaProduct} - ${item.ukuranVariant} ${item.warnaVariant}`.substring(
+          0,
+          50,
+        ), // Midtrans limit 50 chars
       })),
       // Shipping cost as separate item
       {
@@ -200,7 +204,6 @@ export class PaymentsService {
 
       // Save to database
       return await this.paymentRepository.save(payment);
-      
     } catch (error) {
       // Log detailed error untuk debugging
       console.error('Midtrans Error Details:', {
@@ -216,7 +219,7 @@ export class PaymentsService {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (error?.message?.includes('already been taken')) {
         console.log('Transaction ID collision detected, generating new ID...');
-        
+
         // Generate new transaction ID with extra random suffix
         const retryTransactionId = `${transactionId}-RETRY-${Date.now()}`;
         payment.transactionId = retryTransactionId;
@@ -230,7 +233,9 @@ export class PaymentsService {
           return await this.paymentRepository.save(payment);
         } catch (retryError) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          throw new BadRequestException(`Gagal membuat pembayaran setelah retry: ${retryError?.message}`);
+          throw new BadRequestException(
+            `Gagal membuat pembayaran setelah retry: ${retryError?.message}`,
+          );
         }
       }
 
@@ -461,5 +466,141 @@ export class PaymentsService {
     }
 
     return refundSuccess;
+  }
+
+  /**
+   * Check payment status from Midtrans and update locally
+   * Used when webhook doesn't arrive (localhost development)
+   *
+   * @param paymentId - ID payment
+   * @returns Updated payment with latest status
+   */
+  async checkAndUpdatePaymentStatus(paymentId: string): Promise<Payment> {
+    const payment = await this.paymentRepository.findOne({
+      where: { id: paymentId },
+      relations: ['order'],
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment tidak ditemukan');
+    }
+
+    try {
+      // Call Midtrans API to get transaction status
+      const midtransServerKey = process.env.MIDTRANS_SERVER_KEY;
+
+      if (!midtransServerKey) {
+        throw new Error('MIDTRANS_SERVER_KEY not configured in .env');
+      }
+
+      const authString = Buffer.from(midtransServerKey + ':').toString(
+        'base64',
+      );
+      const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
+      const midtransBaseUrl = isProduction
+        ? 'https://api.midtrans.com'
+        : 'https://api.sandbox.midtrans.com';
+
+      console.log('🔍 Checking Midtrans status for:', {
+        transactionId: payment.transactionId,
+        orderId: payment.orderId,
+        url: `${midtransBaseUrl}/v2/${payment.transactionId}/status`,
+      });
+
+      // Use axios instead of fetch for better compatibility
+      const response = await axios.get(
+        `${midtransBaseUrl}/v2/${payment.transactionId}/status`,
+        {
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Basic ${authString}`,
+          },
+          validateStatus: () => true, // Don't throw on any status
+        },
+      );
+
+      if (response.status !== 200) {
+        console.error('❌ Midtrans Error Details:', {
+          transactionId: payment.transactionId,
+          orderId: payment.orderId,
+          status: response.status,
+          statusText: response.statusText,
+          error: response.data,
+        });
+
+        // If 404, transaction might not exist yet (payment just created)
+        if (response.status === 404) {
+          throw new Error(
+            'Transaksi belum ditemukan di Midtrans. Silakan tunggu beberapa saat dan coba lagi.',
+          );
+        }
+
+        // If 401, authentication problem
+        if (response.status === 401) {
+          throw new Error(
+            'Authentication error dengan Midtrans. Periksa MIDTRANS_SERVER_KEY di .env',
+          );
+        }
+
+        throw new Error(
+          `Midtrans API error: ${response.status} - ${JSON.stringify(response.data)}`,
+        );
+      }
+
+      const midtransStatus = response.data;
+
+      console.log('✅ Midtrans Response:', {
+        transactionId: payment.transactionId,
+        status: midtransStatus.transaction_status,
+        fraudStatus: midtransStatus.fraud_status,
+      });
+
+      // Map Midtrans status to our PaymentStatus
+      let newStatus: PaymentStatus;
+      const transactionStatus = midtransStatus.transaction_status;
+      const fraudStatus = midtransStatus.fraud_status;
+
+      if (transactionStatus === 'capture') {
+        newStatus =
+          fraudStatus === 'accept'
+            ? PaymentStatus.SETTLEMENT
+            : PaymentStatus.PENDING;
+      } else if (transactionStatus === 'settlement') {
+        newStatus = PaymentStatus.SETTLEMENT;
+      } else if (transactionStatus === 'pending') {
+        newStatus = PaymentStatus.PENDING;
+      } else if (transactionStatus === 'deny') {
+        newStatus = PaymentStatus.DENY;
+      } else if (transactionStatus === 'expire') {
+        newStatus = PaymentStatus.EXPIRE;
+      } else if (transactionStatus === 'cancel') {
+        newStatus = PaymentStatus.CANCEL;
+      } else if (transactionStatus === 'refund') {
+        newStatus = PaymentStatus.REFUND;
+      } else {
+        newStatus = PaymentStatus.PENDING;
+      }
+
+      // Update payment status
+      payment.status = newStatus;
+
+      // If payment successful, update order status
+      if (newStatus === PaymentStatus.SETTLEMENT) {
+        payment.waktuSettlement = new Date();
+        const order = payment.order;
+        order.status = OrderStatus.PAID;
+        order.dibayarPada = new Date();
+        await this.orderRepository.save(order);
+      }
+
+      await this.paymentRepository.save(payment);
+
+      return payment;
+    } catch (error) {
+      throw new Error(
+        `Gagal mengecek status pembayaran dari Midtrans: ${error.message}`,
+      );
+    }
   }
 }

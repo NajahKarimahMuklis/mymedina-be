@@ -14,18 +14,31 @@ import { Category } from '../../categories/entities/category.entity';
 import { ProductVariant } from '../../product-variants/entities/product-variant.entity';
 
 /**
- * Product Entity - FIXED VERSION
- *
- * Pastikan column names sesuai dengan database schema
+ * Transformer untuk column numeric PostgreSQL
+ * Wajib agar terbaca sebagai number di JS
  */
+const numericTransformer = {
+  to: (value: number) => value,
+  from: (value: string | null) => (value === null ? null : Number(value)),
+};
+
 @Entity('products')
 export class Product {
+  // ========================================
+  // PRIMARY KEY
+  // ========================================
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  // ========================================
+  // FOREIGN KEY
+  // ========================================
   @Column({ name: 'category_id' })
   categoryId: string;
 
+  // ========================================
+  // BASIC INFO
+  // ========================================
   @Column({ type: 'varchar', length: 255 })
   nama: string;
 
@@ -35,23 +48,26 @@ export class Product {
   @Column({ type: 'text', nullable: true })
   deskripsi: string;
 
+  // ========================================
+  // PRICE
+  // ========================================
   @Column({
     name: 'base_price',
     type: 'decimal',
     precision: 12,
     scale: 2,
-    transformer: {
-      to: (value: number) => value,
-      from: (value: string) => parseFloat(value),
-    },
+    transformer: numericTransformer,
   })
   hargaDasar: number;
 
+  // ========================================
+  // DIMENSIONS & WEIGHT (IMPORTANT)
+  // ========================================
   @Column({
     type: 'numeric',
     precision: 8,
     scale: 2,
-    nullable: false,
+    transformer: numericTransformer,
   })
   berat: number;
 
@@ -59,7 +75,7 @@ export class Product {
     type: 'numeric',
     precision: 8,
     scale: 2,
-    nullable: false,
+    transformer: numericTransformer,
   })
   panjang: number;
 
@@ -67,7 +83,7 @@ export class Product {
     type: 'numeric',
     precision: 8,
     scale: 2,
-    nullable: false,
+    transformer: numericTransformer,
   })
   lebar: number;
 
@@ -75,10 +91,13 @@ export class Product {
     type: 'numeric',
     precision: 8,
     scale: 2,
-    nullable: false,
+    transformer: numericTransformer,
   })
   tinggi: number;
 
+  // ========================================
+  // STATUS
+  // ========================================
   @Column({
     type: 'enum',
     enum: ProductStatus,
@@ -89,9 +108,17 @@ export class Product {
   @Column({ type: 'boolean', default: true })
   aktif: boolean;
 
-  @Column({ name: 'image_url', type: 'varchar', length: 500, nullable: true })
+  @Column({
+    name: 'image_url',
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+  })
   gambarUrl: string;
 
+  // ========================================
+  // TIMESTAMPS
+  // ========================================
   @CreateDateColumn({ name: 'created_at' })
   dibuatPada: Date;
 
@@ -102,13 +129,12 @@ export class Product {
   dihapusPada: Date;
 
   // ========================================
-  // RELATIONSHIPS
+  // RELATIONS
   // ========================================
-
   @ManyToOne(() => Category, {
     nullable: false,
     onDelete: 'RESTRICT',
-    eager: false, // Jangan auto-load, gunakan explicit relations
+    eager: false,
   })
   @JoinColumn({ name: 'category_id' })
   category: Category;
@@ -119,9 +145,8 @@ export class Product {
   variants: ProductVariant[];
 
   // ========================================
-  // METHODS
+  // METHODS (HELPER)
   // ========================================
-
   ambilVariants(): ProductVariant[] {
     return this.variants || [];
   }
@@ -130,6 +155,7 @@ export class Product {
     if (!this.variants || this.variants.length === 0) {
       return 0;
     }
+
     return this.variants.reduce(
       (total, variant) => total + (variant.stok || 0),
       0,
@@ -140,3 +166,4 @@ export class Product {
     return this.aktif && this.ambilStokTersedia() > 0;
   }
 }
+ 

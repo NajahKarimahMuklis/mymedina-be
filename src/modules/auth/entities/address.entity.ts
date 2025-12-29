@@ -12,31 +12,9 @@ import { User } from './user.entity';
 
 /**
  * Address Entity
- *
- * Menyimpan multiple addresses untuk setiap user
- * - Shipping addresses
- * - Billing addresses
- * - Personal addresses
- *
- * OOP Concepts:
- * - Encapsulation: Address data bundled in one class
- * - Abstraction: Hides storage implementation
- * - Composition: User "has many" Addresses
- *
- * Design Pattern:
- * - Active Record Pattern (via TypeORM)
- *
- * Naming Convention: Hybrid Approach
- * - Class name: English (Address)
- * - Properties: Bahasa Indonesia
- * - Database columns: English snake_case
  */
 @Entity('addresses')
 export class Address {
-  // ========================================
-  // PRIMARY KEY
-  // ========================================
-
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -44,9 +22,6 @@ export class Address {
   // USER RELATIONSHIP
   // ========================================
 
-  /**
-   * User yang memiliki address ini
-   */
   @ManyToOne(() => User, (user) => user.addresses, {
     nullable: false,
     onDelete: 'CASCADE',
@@ -63,7 +38,6 @@ export class Address {
 
   /**
    * Label untuk address (e.g., "Rumah", "Kantor", "Gudang")
-   * Optional - untuk memudahkan identifikasi
    */
   @Column({ length: 50, nullable: true })
   label: string;
@@ -113,7 +87,6 @@ export class Address {
 
   /**
    * Koordinat GPS (optional)
-   * Format: "-6.2088,106.8456"
    */
   @Column({
     name: 'latitude',
@@ -137,17 +110,9 @@ export class Address {
   // FLAGS
   // ========================================
 
-  /**
-   * Apakah ini default address?
-   * Digunakan sebagai pre-selected saat create order
-   */
   @Column({ name: 'is_default', default: false })
   isDefault: boolean;
 
-  /**
-   * Status aktif/non-aktif
-   * Non-aktif addresses tetap tersimpan tapi tidak ditampilkan
-   */
   @Column({ default: true })
   aktif: boolean;
 
@@ -165,23 +130,13 @@ export class Address {
   dihapusPada: Date;
 
   // ========================================
-  // METHODS (sesuai Class Diagram)
+  // METHODS
   // ========================================
 
-  /**
-   * Set address ini sebagai default
-   * Implementation note: Logic di service layer
-   */
   setAsDefault(): void {
     this.isDefault = true;
   }
 
-  /**
-   * Dapatkan alamat lengkap dalam format string
-   * Format: "Baris1, Baris2, Kota, Provinsi Kode Pos"
-   *
-   * @returns Alamat lengkap sebagai string
-   */
   getAlamatLengkap(): string {
     const parts = [this.alamatBaris1];
 

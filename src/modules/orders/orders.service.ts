@@ -17,18 +17,6 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { OrderItem } from './entities/order-item.entity';
 import { Order } from './entities/order.entity';
 
-/**
- * Orders Service
- *
- * OOP Concepts:
- * - Encapsulation: Business logic encapsulated in service
- * - Single Responsibility: Handles only order-related operations
- *
- * Design Patterns:
- * - Service Pattern: Business logic layer
- * - Repository Pattern: Data access through TypeORM repositories
- * - Dependency Injection: Dependencies injected via constructor
- */
 @Injectable()
 export class OrdersService {
   constructor(
@@ -47,10 +35,6 @@ export class OrdersService {
     private readonly addressService: AddressService,
   ) {}
 
-  /**
-   * Generate unique order number
-   * Format: ORD-YYYYMMDD-XXXXX
-   */
   private async generateOrderNumber(): Promise<string> {
     const date = new Date();
     const year = date.getFullYear();
@@ -68,14 +52,6 @@ export class OrdersService {
     return `ORD-${dateStr}-${sequence}`;
   }
 
-  /**
-   * Create Order (Checkout)
-   * Stateless cart: receives cart data from frontend
-   *
-   * Option 1: Gunakan saved address (pass addressId)
-   * Option 2: Gunakan alamat baru (pass alamatPengiriman)
-   * Option 3: Jika tidak pass apapun, gunakan default address user
-   */
   async buatOrder(
     userId: string,
     createOrderDto: CreateOrderDto,
@@ -297,38 +273,55 @@ export class OrdersService {
 
     return order;
   }
-
-  /**
-   * Get All Orders (Admin)
-   */
   async ambilSemuaOrder(
     page: number = 1,
     limit: number = 10,
     status?: OrderStatus,
-  ): Promise<{ data: Order[]; total: number; page: number; limit: number }> {
+  ): Promise<{
+    data: Order[];
+    total: number;
+    page: number;
+    limit: number;
+    totalRevenue: number;
+  }> {
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.orderRepository
       .createQueryBuilder('order')
-      .leftJoinAndSelect('order.items', 'items')
       .leftJoinAndSelect('order.user', 'user')
-      .orderBy('order.dibuatPada', 'DESC')
+      .leftJoinAndSelect('order.items', 'items') // Join dengan OrderItems
+      .leftJoinAndSelect('items.product', 'product') // Join dengan Product
+      .leftJoinAndSelect('items.variant', 'variant') // Join dengan ProductVariant
+      .leftJoinAndSelect('order.payments', 'payments') // Join dengan Payment untuk mendapatkan data pembayaran
+      .orderBy('order.dibuatPada', 'DESC') // Urutkan berdasarkan waktu pembuatan order
       .skip(skip)
       .take(limit);
 
+    // Jika ada status, kita filter berdasarkan status order
     if (status) {
       queryBuilder.where('order.status = :status', { status });
     }
 
     const [data, total] = await queryBuilder.getManyAndCount();
 
+    // Hitung total revenue jika diperlukan
+    const totalRevenue = data.reduce((sum, order) => {
+      return sum + (order.total || 0); // Ambil total setiap order
+    }, 0);
+
     return {
       data,
       total,
+      totalRevenue, // Pastikan untuk mengembalikan totalRevenue di sini
       page,
       limit,
     };
   }
+
+  /**
+   * Get All Orders (Admin)
+   */
+  
 
   /**
    * Update Order Status (Admin)
@@ -485,12 +478,6 @@ export class OrdersService {
     return await this.orderRepository.save(order);
   }
 
-  /**
-   * Batalkan order
-   * Menggunakan method entity: batalkanOrder()
-   *
-   * @param orderId - ID order
-   */
   async batalkanOrderNew(orderId: string): Promise<Order> {
     const order = await this.orderRepository.findOne({
       where: { id: orderId },
@@ -516,13 +503,6 @@ export class OrdersService {
     return await this.orderRepository.save(order);
   }
 
-  /**
-   * Ambil semua items dalam order
-   * Menggunakan method entity: ambilItems()
-   *
-   * @param orderId - ID order
-   * @returns Array dari OrderItem
-   */
   async ambilItemsOrder(orderId: string): Promise<OrderItem[]> {
     const order = await this.orderRepository.findOne({
       where: { id: orderId },
@@ -536,13 +516,6 @@ export class OrdersService {
     return order.ambilItems();
   }
 
-  /**
-   * Ambil semua payments untuk order
-   * Menggunakan method entity: ambilPayments()
-   *
-   * @param orderId - ID order
-   * @returns Array dari Payment
-   */
   async ambilPaymentsOrder(orderId: string): Promise<any[]> {
     const order = await this.orderRepository.findOne({
       where: { id: orderId },
@@ -552,17 +525,9 @@ export class OrdersService {
       throw new NotFoundException('Order tidak ditemukan');
     }
 
-    // Gunakan method entity
     return order.ambilPayments();
   }
 
-  /**
-   * Ambil shipment untuk order
-   * Menggunakan method entity: ambilShipment()
-   *
-   * @param orderId - ID order
-   * @returns Shipment atau undefined
-   */
   async ambilShipmentOrder(orderId: string): Promise<any> {
     const order = await this.orderRepository.findOne({
       where: { id: orderId },

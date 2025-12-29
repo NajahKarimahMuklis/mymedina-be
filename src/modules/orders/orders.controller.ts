@@ -21,22 +21,6 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
 import { OrderStatus } from '../../common/enums/order-status.enum';
 
-/**
- * Orders Controller
- *
- * OOP Concepts:
- * - Encapsulation: HTTP handling logic in controller
- * - Single Responsibility: Handles only HTTP requests/responses
- *
- * Design Patterns:
- * - Controller Pattern: Handles HTTP requests
- * - Dependency Injection: OrdersService injected
- * - Guard Pattern: Authentication and authorization
- *
- * ⚠️ IMPORTANT: Route Order Matters!
- * - Static routes (admin/all) MUST come BEFORE dynamic routes (:id)
- * - Otherwise "admin" will be treated as an :id parameter
- */
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
 export class OrdersController {
@@ -49,7 +33,7 @@ export class OrdersController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async buatOrder(@Request() req, @Body() createOrderDto: CreateOrderDto) {
-    const userId = req.user.userId;
+    const userId = req.user.id; // ✅ UBAH DARI userId KE id
     const order = await this.ordersService.buatOrder(userId, createOrderDto);
 
     return {
@@ -64,7 +48,7 @@ export class OrdersController {
    */
   @Get()
   async ambilOrderSaya(@Request() req) {
-    const userId = req.user.userId;
+    const userId = req.user.id; // ✅ UBAH DARI userId KE id
     const orders = await this.ordersService.ambilOrderSaya(userId);
 
     return {
@@ -77,9 +61,6 @@ export class OrdersController {
   /**
    * ✅ GET /orders/admin/all - Get All Orders (Admin)
    * Admin/Owner only
-   *
-   * ⚠️ MUST BE BEFORE /:id route!
-   * Route statis harus di atas route dinamis
    */
   @Get('admin/all')
   @UseGuards(RolesGuard)
@@ -104,13 +85,10 @@ export class OrdersController {
   /**
    * GET /orders/:id - Get Order by ID
    * Customer (own orders) or Admin (all orders)
-   *
-   * ⚠️ MUST BE AFTER static routes like admin/all
-   * Jika di atas, "admin" akan dianggap sebagai :id
    */
   @Get(':id')
   async ambilOrderById(@Request() req, @Param('id') id: string) {
-    const userId = req.user.userId;
+    const userId = req.user.id; // ✅ UBAH DARI userId KE id
     const isAdmin =
       req.user.role === Role.ADMIN || req.user.role === Role.OWNER;
     const order = await this.ordersService.ambilOrderById(id, userId, isAdmin);
@@ -146,17 +124,11 @@ export class OrdersController {
   /**
    * DELETE /orders/:id - Cancel Order
    * Customer only - Hanya untuk order dengan status PENDING_PAYMENT
-   *
-   * ⚠️ Security:
-   * - Only order owner can cancel their own order
-   * - Only PENDING_PAYMENT status can be cancelled
-   * - Stock will be restored automatically
-   * - Order status will be set to CANCELLED (not deleted)
    */
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   async batalkanOrder(@Request() req, @Param('id') id: string) {
-    const userId = req.user.userId;
+    const userId = req.user.id; // ✅ UBAH DARI userId KE id
     await this.ordersService.batalkanOrder(id, userId);
 
     return {

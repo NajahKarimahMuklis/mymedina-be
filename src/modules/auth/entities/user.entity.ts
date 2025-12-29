@@ -59,9 +59,6 @@ export class User {
   @Column({ default: true })
   aktif: boolean;
 
-  @Column({ name: 'profile_picture', nullable: true })
-  fotoProfil: string;
-
   @Column({
     name: 'verification_token',
     type: 'varchar',
@@ -92,14 +89,6 @@ export class User {
   @DeleteDateColumn({ name: 'deleted_at', nullable: true })
   dihapusPada: Date;
 
-  // ========================================
-  // RELATIONSHIPS
-  // ========================================
-
-  /**
-   * User memiliki banyak addresses
-   * Cascade delete: jika user dihapus, semua addresses juga dihapus
-   */
   @OneToMany(() => Address, (address) => address.user, {
     cascade: true,
     eager: false,

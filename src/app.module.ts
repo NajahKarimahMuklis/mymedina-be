@@ -12,32 +12,19 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { ProductVariantsModule } from './modules/product-variants/product-variants.module';
 import { ProductsModule } from './modules/products/products.module';
 import { ShipmentsModule } from './modules/shipments/shipments.module';
+import { OwnerModule } from './modules/owner/owner.module';
 import { UploadModule } from './shared/upload/upload.module';
 
-/**
- * Root Application Module
- *
- * OOP Concepts:
- * - Module Pattern: Organizing related code
- * - Dependency Injection: NestJS DI container
- * - Separation of Concerns: Each module has specific responsibility
- */
 @Module({
   imports: [
-    // Configuration Module (loads .env file)
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
     }),
 
-    // TypeORM Module (Database connection)
-    TypeOrmModule.forRoot({
-      ...databaseConfig(),
-      synchronize: false,    // Disabled: migrations handle schema changes
-      logging: ['error', 'warn'],         // Only log errors and warnings
-    }),
+    // ✅ LANGSUNG pakai config tanpa override
+    TypeOrmModule.forRoot(databaseConfig()),
 
-    // Rate Limiting Module
     ThrottlerModule.forRoot([
       {
         ttl: parseInt(process.env.THROTTLE_TTL || '60', 10) * 1000,
@@ -45,18 +32,17 @@ import { UploadModule } from './shared/upload/upload.module';
       },
     ]),
 
-    // Feature modules
     AuthModule,
     CategoriesModule,
     ProductsModule,
     ProductVariantsModule,
     OrdersModule,
     PaymentsModule,
+    OwnerModule,
     ShipmentsModule,
     UploadModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {
-}
+export class AppModule {}

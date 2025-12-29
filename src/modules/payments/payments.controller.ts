@@ -87,6 +87,24 @@ export class PaymentsController {
   }
 
   /**
+   * POST /payments/:id/check-status - Check Payment Status from Midtrans
+   * Customer can check their own payment status
+   * Will automatically update order status if payment is successful
+   */
+  @Post(':id/check-status')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async checkPaymentStatus(@Param('id') id: string) {
+    const updatedPayment =
+      await this.paymentsService.checkAndUpdatePaymentStatus(id);
+
+    return {
+      message: 'Status pembayaran berhasil diperbarui',
+      payment: updatedPayment,
+    };
+  }
+
+  /**
    * PUT /payments/:id/status - Update Payment Status
    * Admin/Owner only (manual update)
    */

@@ -185,20 +185,6 @@ export class AuthService {
     };
   }
 
-  /**
-   * Verifikasi Email
-   *
-   * Flow:
-   * 1. Cari user berdasarkan userId
-   * 2. Cek apakah token verifikasi valid dan belum expired
-   * 3. Bandingkan token dari request dengan token di database
-   * 4. Update emailTerverifikasi = true
-   * 5. Hapus token verifikasi dari database
-   *
-   * @param userId - ID user yang akan diverifikasi
-   * @param token - Token verifikasi (6 digit)
-   * @returns Success message
-   */
   async verifikasiEmail(userId: string, token: string) {
     // Cari user berdasarkan userId
     const user = await this.userRepository.findOne({ where: { id: userId } });

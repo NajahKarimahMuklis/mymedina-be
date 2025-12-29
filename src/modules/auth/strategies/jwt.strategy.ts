@@ -5,22 +5,6 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
 
-/**
- * JWT Strategy
- *
- * OOP Concepts:
- * - Inheritance: Extends PassportStrategy
- * - Encapsulation: JWT validation logic dalam satu class
- *
- * Design Pattern:
- * - Strategy Pattern: Passport strategy untuk JWT authentication
- *
- * Flow:
- * 1. Extract JWT token dari Authorization header
- * 2. Verify token dengan JWT_SECRET
- * 3. Validate user dari payload (sub = userId)
- * 4. Attach user ke request object
- */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
@@ -37,15 +21,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  /**
-   * Validate JWT Payload
-   *
-   * Method ini dipanggil otomatis oleh Passport setelah token terverifikasi
-   *
-   * @param payload - JWT payload { sub: userId, email, role }
-   * @returns User object (akan di-attach ke request.user)
-   */
   async validate(payload: any) {
+    console.log('🔍 JWT Payload:', payload); // ✅ DEBUG
+
     const { sub: userId } = payload;
 
     // Cari user berdasarkan ID dari payload
@@ -62,12 +40,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Akun Anda telah dinonaktifkan');
     }
 
-    // Return user (akan di-attach ke request.user)
-    // Jangan return password!
-    return {
-      userId: user.id,
-      email: user.email,
-      role: user.role, // 🔥 INI KUNCI UTAMA
-    };    
+    console.log('✅ JWT User validated:', user.id); // ✅ DEBUG
+
+    return user;
   }
 }
