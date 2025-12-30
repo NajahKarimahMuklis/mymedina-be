@@ -1,11 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Resend } from 'resend';
+import * as nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 
 /**
  * Email Service
  *
- * Bertanggung jawab untuk mengirim email menggunakan Resend API.
+ * Bertanggung jawab untuk mengirim email menggunakan Brevo SMTP.
  *
  * OOP Concepts:
  * - Encapsulation: Email sending logic dikapsulasi dalam service ini
@@ -19,24 +20,35 @@ import { Resend } from 'resend';
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly frontendUrl: string;
-  private readonly resend: Resend;
+  private readonly transporter: Transporter;
   private readonly fromEmail: string;
 
   constructor(private readonly configService: ConfigService) {
     this.frontendUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
 
-    const resendApiKey = this.configService.get<string>('RESEND_API_KEY');
-    if (!resendApiKey) {
+    const brevoApiKey = this.configService.get<string>('BREVO_API_KEY');
+    if (!brevoApiKey) {
       this.logger.warn(
-        'RESEND_API_KEY tidak ditemukan! Email tidak akan terkirim.',
+        'BREVO_API_KEY tidak ditemukan! Email tidak akan terkirim.',
       );
     }
 
-    this.resend = new Resend(resendApiKey);
+    // Configure Nodemailer with Brevo SMTP
+    this.transporter = nodemailer.createTransport({
+      host: 'smtp-relay.brevo.com',
+      port: 587,
+      secure: false, // use TLS
+      auth: {
+        user:
+          this.configService.get<string>('EMAIL_FROM') ||
+          'noreply@mymedina.com',
+        pass: brevoApiKey,
+      },
+    });
+
     this.fromEmail =
-      this.configService.get<string>('EMAIL_FROM') ||
-      'MyMedina <onboarding@resend.dev>';
+      this.configService.get<string>('EMAIL_FROM') || 'noreply@mymedina.com';
   }
 
   /**
@@ -58,8 +70,8 @@ export class EmailService {
     try {
       const verificationUrl = `${this.frontendUrl}/verifikasi-email?userId=${userId}&token=${token}`;
 
-      await this.resend.emails.send({
-        from: this.fromEmail,
+      await this.transporter.sendMail({
+        from: `MyMedina <${this.fromEmail}>`,
         to: email,
         subject: '✅ Verifikasi Email Anda - MyMedina',
         html: `
@@ -131,8 +143,8 @@ export class EmailService {
     try {
       const resetUrl = `${this.frontendUrl}/reset-password?token=${token}`;
 
-      await this.resend.emails.send({
-        from: this.fromEmail,
+      await this.transporter.sendMail({
+        from: `MyMedina <${this.fromEmail}>`,
         to: email,
         subject: '🔐 Reset Password Anda - MyMedina',
         html: `
@@ -195,8 +207,8 @@ export class EmailService {
    */
   async kirimEmailWelcome(email: string, nama: string): Promise<void> {
     try {
-      await this.resend.emails.send({
-        from: this.fromEmail,
+      await this.transporter.sendMail({
+        from: `MyMedina <${this.fromEmail}>`,
         to: email,
         subject: '🎉 Selamat Datang di MyMedina!',
         html: `
@@ -255,10 +267,10 @@ export class EmailService {
     try {
       const trackingUrl = `${this.frontendUrl}/tracking/${waybill}/${order.shipmentCourierCode}`;
 
-      await this.resend.emails.send({
-        from: this.fromEmail,
+      await this.transporter.sendMail({
+        from: `MyMedina <${this.fromEmail}>`,
         to: recipientEmail,
-        subject: `Pesanan Anda #${order.nomorOrder} - Sudah Dikirim!`,
+        subject: `📦 Pesanan Anda #${order.nomorOrder} - Sudah Dikirim!`,
         html: `
           <!DOCTYPE html>
           <html>
