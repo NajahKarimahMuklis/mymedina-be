@@ -34,8 +34,12 @@ export class EmailService {
     this.brevoApiKey = this.configService.get<string>('BREVO_API_KEY');
 
     if (!this.brevoApiKey) {
-      this.logger.warn(
-        'BREVO_API_KEY tidak ditemukan! Email tidak akan terkirim.',
+      this.logger.error(
+        '❌ BREVO_API_KEY tidak ditemukan di environment variables! Email tidak akan terkirim.',
+      );
+    } else {
+      this.logger.log(
+        `✅ Brevo API Key loaded: ${this.brevoApiKey.substring(0, 20)}...`,
       );
     }
 
