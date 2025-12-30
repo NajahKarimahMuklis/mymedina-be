@@ -21,19 +21,19 @@ async function bootstrap() {
 
   // CORS (allow frontend to access API)
   app.enableCors({
-    origin: process.env.FRONTEND_URL || "*",
+    origin: process.env.FRONTEND_URL || '*',
     credentials: true,
   });
 
-  // Global prefix for all routes
-  app.setGlobalPrefix('api');
+  // Global prefix for all routes EXCEPT health check
+  app.setGlobalPrefix('api', {
+    exclude: ['/'], // Allow root path for health checks
+  });
 
   const port = process.env.PORT || 5000;
   await app.listen(port, '0.0.0.0');
 
-  console.log(
-    `🚀 MyMedina Backend is running on: http://0.0.0.0:${port}/api`,
-  );
+  console.log(`🚀 MyMedina Backend is running on: http://0.0.0.0:${port}/api`);
   console.log(
     `📊 Database: ${process.env.DB_NAME || 'railway'}@${process.env.DB_HOST || 'postgres.railway.internal'}`,
   );
