@@ -28,9 +28,11 @@ export class EmailService {
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
 
     const brevoApiKey = this.configService.get<string>('BREVO_API_KEY');
-    if (!brevoApiKey) {
+    const brevoLogin = this.configService.get<string>('BREVO_SMTP_LOGIN');
+
+    if (!brevoApiKey || !brevoLogin) {
       this.logger.warn(
-        'BREVO_API_KEY tidak ditemukan! Email tidak akan terkirim.',
+        'BREVO_API_KEY atau BREVO_SMTP_LOGIN tidak ditemukan! Email tidak akan terkirim.',
       );
     }
 
@@ -40,9 +42,7 @@ export class EmailService {
       port: 587,
       secure: false, // use TLS
       auth: {
-        user:
-          this.configService.get<string>('EMAIL_FROM') ||
-          'noreply@mymedina.com',
+        user: brevoLogin,
         pass: brevoApiKey,
       },
     });
