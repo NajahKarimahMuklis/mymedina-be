@@ -21,7 +21,7 @@ export const databaseConfig = (): DataSourceOptions => {
     type: 'postgres',
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '5432', 10),
-    username: process.env.DB_USERNAME || process.env.DB_USER || 'postgres',
+    username: process.env.DB_USER || process.env.DB_USERNAME || 'postgres',
     password: process.env.DB_PASSWORD || '123321',
     database: process.env.DB_NAME || 'mymedina',
     entities: [join(process.cwd(), 'dist/**/*.entity.js')],
