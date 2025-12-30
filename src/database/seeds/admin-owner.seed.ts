@@ -27,12 +27,11 @@ export class AdminOwnerSeeder {
     if (!existingAdmin) {
       await userRepository.save({
         email: 'admin@mymedina.com',
-        password: hashedPassword,
+        hashPassword: hashedPassword,
         nama: 'Admin MyMedina',
         nomorTelepon: '081234567890',
         role: Role.ADMIN,
-        emailVerified: true,
-        emailVerifiedAt: new Date(),
+        emailTerverifikasi: true,
       });
       console.log('✅ Admin account created: admin@mymedina.com / Admin123!');
     } else {
@@ -47,12 +46,11 @@ export class AdminOwnerSeeder {
     if (!existingOwner) {
       await userRepository.save({
         email: 'owner@mymedina.com',
-        password: hashedPassword,
+        hashPassword: hashedPassword,
         nama: 'Owner MyMedina',
         nomorTelepon: '081234567891',
         role: Role.OWNER,
-        emailVerified: true,
-        emailVerifiedAt: new Date(),
+        emailTerverifikasi: true,
       });
       console.log('✅ Owner account created: owner@mymedina.com / Admin123!');
     } else {
