@@ -3,7 +3,7 @@ import { join } from 'path';
 
 export const databaseConfig = (): DataSourceOptions => {
   const isProduction = process.env.NODE_ENV === 'production';
-  
+
   // Entities path: production uses compiled .js in dist/, development uses .ts in src/
   const entitiesPath = isProduction
     ? [join(__dirname, '../**/*.entity.js')]
