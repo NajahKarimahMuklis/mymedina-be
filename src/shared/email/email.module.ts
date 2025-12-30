@@ -27,11 +27,14 @@ import { EmailService } from './email.service';
       useFactory: (configService: ConfigService) => ({
         transport: {
           host: configService.get<string>('EMAIL_HOST'),
-          port: configService.get<number>('EMAIL_PORT'),
-          secure: true, // true for 465, false for other ports
+          port: configService.get<number>('EMAIL_PORT') || 587,
+          secure: false, // Use false for port 587 (STARTTLS)
           auth: {
             user: configService.get<string>('EMAIL_USER'),
             pass: configService.get<string>('EMAIL_PASSWORD'),
+          },
+          tls: {
+            rejectUnauthorized: false, // Allow self-signed certs (untuk Railway)
           },
         },
         defaults: {
