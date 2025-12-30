@@ -34,18 +34,23 @@ export class EmailService {
       this.logger.warn(
         'BREVO_API_KEY atau BREVO_SMTP_LOGIN tidak ditemukan! Email tidak akan terkirim.',
       );
+      // Create dummy transporter to prevent crashes
+      this.transporter = nodemailer.createTransport({
+        streamTransport: true,
+        newline: 'unix',
+      });
+    } else {
+      // Configure Nodemailer with Brevo SMTP
+      this.transporter = nodemailer.createTransport({
+        host: 'smtp-relay.brevo.com',
+        port: 587,
+        secure: false, // use TLS
+        auth: {
+          user: brevoLogin,
+          pass: brevoApiKey,
+        },
+      });
     }
-
-    // Configure Nodemailer with Brevo SMTP
-    this.transporter = nodemailer.createTransport({
-      host: 'smtp-relay.brevo.com',
-      port: 587,
-      secure: false, // use TLS
-      auth: {
-        user: brevoLogin,
-        pass: brevoApiKey,
-      },
-    });
 
     this.fromEmail =
       this.configService.get<string>('EMAIL_FROM') || 'noreply@mymedina.com';
