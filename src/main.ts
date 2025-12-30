@@ -29,13 +29,13 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   const port = process.env.PORT || 5000;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 
   console.log(
-    `🚀 MyMedina Backend is running on: http://localhost:${port}/api`,
+    `🚀 MyMedina Backend is running on: http://0.0.0.0:${port}/api`,
   );
   console.log(
-    `📊 Database: ${process.env.DB_NAME}@${process.env.DB_HOST}:${process.env.DB_PORT}`,
+    `📊 Database: ${process.env.DB_NAME || 'railway'}@${process.env.DB_HOST || 'postgres.railway.internal'}`,
   );
 }
 
