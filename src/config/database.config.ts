@@ -8,7 +8,7 @@ export const databaseConfig = (): DataSourceOptions => {
       type: 'postgres',
       url: process.env.DATABASE_URL,
       entities: [join(process.cwd(), 'dist/**/*.entity.js')],
-      synchronize: process.env.NODE_ENV !== 'production',
+      synchronize: true, // ⚠️ Temporary enabled for initial database setup
       migrations: [],
       migrationsRun: false,
       logging:
