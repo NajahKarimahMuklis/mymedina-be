@@ -11,8 +11,12 @@ export const databaseConfig = (): DataSourceOptions => {
       synchronize: process.env.NODE_ENV !== 'production',
       migrations: [],
       migrationsRun: false,
-      logging: process.env.NODE_ENV === 'development' ? true : ['error', 'warn'],
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      logging:
+        process.env.NODE_ENV === 'development' ? true : ['error', 'warn'],
+      ssl:
+        process.env.NODE_ENV === 'production'
+          ? { rejectUnauthorized: false }
+          : false,
     };
   }
 
